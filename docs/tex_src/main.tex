@@ -1,7 +1,7 @@
 \documentclass[a4paper,10pt]{article}
 \usepackage[utf8]{inputenc}
 \newcommand{\myparagraph}[1]{\paragraph{#1}\mbox{}\\}
-\usepackage[a4paper,margin=3.5cm]{geometry} %Sets the page geometry
+\usepackage[a4paper,margin=1.5cm]{geometry} %Sets the page geometry
 \usepackage{url}
 \usepackage{dirtytalk}
 \usepackage{graphicx} % Package for \includegraphics
@@ -13,6 +13,9 @@
 \usepackage{tcolorbox}
 \usepackage{mathtools}
 \usepackage{enumerate}
+\usepackage{algorithm}
+\usepackage{algorithmicx}
+\usepackage{algpseudocode}
 
 % Lets you use \blankpage to make a blank page
 \newcommand{\blankpage}{
@@ -33,3 +36,58 @@
 
 % Other
 \DeclarePairedDelimiter\floor{\lfloor}{\rfloor} %Floor function
+
+\begin{document}
+\begin{flushleft}
+	\section{P2P Network Design}
+	\begin{itemize}
+		\item $N$ - nodes in network
+		\item $L$ - layers in model
+		\item $l_i = (x,y) : x,y \in [0,L); y > x$ - range of layers node $i$ has
+		\item $\ell _{ij}$ - latency from node $i$ to node $j$
+		\item $c_i$ - computational cost of node $i$
+		\item $p_i$ - preload cost of node $i$
+		\item $e_i$ - embedding cost of node $i$
+	\end{itemize}
+
+	\section{Optimal Path Finding}
+	The P2P network is constructed as a directed graph. Edges are compatiable nodes with the next layers of the model.
+	We know that this is a DAG becasue the layers must be preformed sequentially. The weights of the edges are the sum of latency and computational cost.
+	The optimal path can be found using a topological sort. The start node is the users computer, and the terminal nodes are all nodes that have layer N.
+	The optimal path connects the start node to a terminal node.
+
+	\subsection{Topological Sort}
+	\begin{algorithm}
+		\caption{Topological Sort of a Directed Acyclic Graph (DAG)}
+		\begin{algorithmic}[1]
+			\Require{A directed acyclic graph $G = (V, E)$}
+			\Ensure{A linear ordering of vertices such that for every directed edge $(u, v)$, vertex $u$ comes before vertex $v$}
+
+			\State $\text{result}[]$ \Comment An empty list to store the sorted vertices
+			\State $\text{visited}[\text{false}; V]$ \Comment A map to track visited vertices
+			\State $\text{temp}[\text{false}; V]$ \Comment A map to track vertices in the current recursion stack
+
+			\For{each vertex $v \in V$}
+			\If{$\text{visited}[v] = \text{false}$}
+			\State DFS-Visit($G$, $v$, $\text{visited}$, $\text{temp}$, $\text{result}$)
+			\EndIf
+			\EndFor
+
+			\State \Return Reverse($\text{result}$)
+
+			\Function{DFS-Visit}{$G$, $u$, $\text{visited}$, $\text{temp}$, $\text{result}$}
+			\State $\text{temp}[u] \gets \text{true}$ \Comment{Mark current vertex as being processed}
+
+			\For{each vertex $v$ such that $(u, v) \in E$}
+			\State DFS-Visit($G$, $v$, $\text{visited}$, $\text{temp}$, $\text{result}$)
+			\EndFor
+
+			\State $\text{temp}[u] \gets \text{false}$ \Comment{Mark $u$ as processed}
+			\State $\text{visited}[u] \gets \text{true}$ \Comment{Mark $u$ as visited}
+			\State Append $u$ to $\text{result}$
+			\EndFunction
+		\end{algorithmic}
+	\end{algorithm}
+	\subsection{Dynamic Programming}
+\end{flushleft}
+\end{document}
