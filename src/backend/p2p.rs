@@ -119,14 +119,14 @@ impl NodeParameters {
         computational_cost: u32,
         preload_cost: u32,
         embedding_cost: u32,
-    ) -> Result<Self, &'static str> {
-        Ok(NodeParameters {
+    ) -> Self {
+        NodeParameters {
             layer_range,
             latencies: HashMap::new(),
             computational_cost,
             preload_cost,
             embedding_cost,
-        })
+        }
     }
 
     /// Sets the latency from this node to another node

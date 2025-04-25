@@ -39,19 +39,6 @@ where
             .insert(destination);
     }
 
-    /// Returns true if the graph contains the node
-    pub fn has_node(&self, node: &T) -> bool {
-        self.adjacency_list.contains_key(node)
-    }
-
-    /// Returns true if there is a direct edge from source to destination
-    pub fn has_edge(&self, source: &T, destination: &T) -> bool {
-        match self.adjacency_list.get(source) {
-            Some(neighbors) => neighbors.contains(destination),
-            None => false,
-        }
-    }
-
     /// Returns a vector of all nodes in the graph
     pub fn nodes(&self) -> Vec<T> {
         self.adjacency_list.keys().cloned().collect()
@@ -63,5 +50,64 @@ where
             Some(neighbors) => neighbors.iter().cloned().collect(),
             None => Vec::new(),
         }
+    }
+
+    /// Performs a topological sort of the graph
+    /// Returns a Result containing either:
+    /// - Ok(Vec<T>): A topologically sorted vector of nodes
+    /// - Err(String): An error message if the graph is not a DAG (contains cycles)
+    pub fn topological_sort(&self) -> Result<Vec<T>, String> {
+        // Track visited nodes and recursion stack to detect cycles
+        let mut visited = HashSet::new();
+        let mut rec_stack = HashSet::new();
+        let mut result = Vec::new();
+
+        // Define a recursive DFS function for topological sort
+        fn dfs<T: Eq + std::hash::Hash + Clone>(
+            graph: &DirectedGraph<T>,
+            node: &T,
+            visited: &mut HashSet<T>,
+            rec_stack: &mut HashSet<T>,
+            result: &mut Vec<T>,
+        ) -> Result<(), String> {
+            // Mark the current node as visited and add to recursion stack
+            visited.insert(node.clone());
+            rec_stack.insert(node.clone());
+
+            // Visit all neighbors
+            for neighbor in graph.neighbors(node) {
+                // If neighbor is in recursion stack, we found a cycle
+                if rec_stack.contains(&neighbor) {
+                    return Err(format!("Graph contains a cycle"));
+                }
+
+                // If not visited, recursively visit
+                if !visited.contains(&neighbor) {
+                    if let Err(e) = dfs(graph, &neighbor, visited, rec_stack, result) {
+                        return Err(e);
+                    }
+                }
+            }
+
+            // Remove the node from recursion stack and add it to result
+            rec_stack.remove(node);
+            result.push(node.clone());
+
+            Ok(())
+        }
+
+        // Perform DFS on each unvisited node
+        for node in self.nodes() {
+            if !visited.contains(&node) {
+                if let Err(e) = dfs(self, &node, &mut visited, &mut rec_stack, &mut result) {
+                    return Err(e);
+                }
+            }
+        }
+
+        // Reverse the result to get the correct topological order
+        result.reverse();
+
+        Ok(result)
     }
 }
