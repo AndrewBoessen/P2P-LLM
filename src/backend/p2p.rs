@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::hash::{Hash, Hasher};
 
 use super::graph;
@@ -13,15 +13,16 @@ use super::graph;
 /// * `end_node_ids` - IDs of nodes that serve as terminal points in the network (at max_layer)
 /// * `min_layer` - The minimum layer range in the network
 /// * `max_layer` - The maximum layer range in the network
-pub struct P2PNetwork {
+pub struct P2PNetwork<'a> {
     pub nodes: Vec<P2PNode>,
     pub start_node_ids: Vec<usize>,
     pub end_node_ids: Vec<usize>,
     pub min_layer: u8,
     pub max_layer: u8,
+    pub contracts: Vec<Contract<'a>>,
 }
 
-impl P2PNetwork {
+impl<'a> P2PNetwork<'a> {
     /// Creates a new P2PNetwork with empty node vectors and default layer bounds.
     ///
     /// # Returns
@@ -34,6 +35,7 @@ impl P2PNetwork {
             end_node_ids: Vec::new(),
             min_layer: u8::MAX,
             max_layer: u8::MIN,
+            contracts: Vec::new(),
         }
     }
 
@@ -74,6 +76,7 @@ impl P2PNetwork {
             end_node_ids,
             min_layer,
             max_layer,
+            contracts: Vec::new(),
         }
     }
 
@@ -208,11 +211,174 @@ impl P2PNetwork {
     }
 }
 
+/// Represents a sub-contract within a larger contract system
+///
+/// A `SubContract` defines a relationship between a source and destination entity
+/// with a time constraint for completion.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct SubContract {
+    /// Identifier for the source entity
+    pub source_id: u8,
+
+    /// Identifier for the destination entity
+    pub dest_id: u8,
+
+    /// Time remaining (in seconds) before the sub-contract expires
+    pub time_left: u32,
+}
+
+impl SubContract {
+    /// Creates a new sub-contract
+    ///
+    /// # Arguments
+    ///
+    /// * `source_id` - The ID of the source entity
+    /// * `dest_id` - The ID of the destination entity
+    /// * `time_left` - Time until expiration in seconds
+    ///
+    /// # Returns
+    ///
+    /// A new `SubContract` instance
+    pub fn new(source_id: u8, dest_id: u8, time_left: u32) -> Self {
+        SubContract {
+            source_id,
+            dest_id,
+            time_left,
+        }
+    }
+
+    /// Decrements the time left on the sub-contract
+    ///
+    /// # Arguments
+    ///
+    /// * `seconds` - The number of seconds to decrement
+    ///
+    /// # Returns
+    ///
+    /// `true` if time remains, `false` if expired
+    pub fn tick(&mut self, seconds: u32) -> bool {
+        if seconds >= self.time_left {
+            self.time_left = 0;
+            false
+        } else {
+            self.time_left -= seconds;
+            true
+        }
+    }
+
+    /// Checks if the sub-contract has expired
+    ///
+    /// # Returns
+    ///
+    /// `true` if expired, `false` otherwise
+    pub fn is_expired(&self) -> bool {
+        self.time_left == 0
+    }
+}
+
+/// Represents a multi-layered contract on a blockchain
+///
+/// A `Contract` consists of multiple sub-contracts that must be fulfilled
+/// in sequence. The contract tracks fulfillment status and manages the
+/// relationship between all sub-contracts.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct Contract<'a> {
+    fulfilled: bool,
+    layers: Vec<&'a SubContract>,
+}
+
+impl<'a> Contract<'a> {
+    /// Creates a new contract with specified sub-contracts
+    ///
+    /// # Arguments
+    ///
+    /// * `layers` - A vector of references to `SubContract`s
+    ///
+    /// # Returns
+    ///
+    /// A new `Contract` instance
+    pub fn new(layers: Vec<&'a SubContract>) -> Self {
+        Contract {
+            fulfilled: false,
+            layers,
+        }
+    }
+
+    /// Creates an empty contract with no sub-contracts
+    ///
+    /// # Returns
+    ///
+    /// A new empty `Contract` instance
+    pub fn empty() -> Self {
+        Contract {
+            fulfilled: false,
+            layers: Vec::new(),
+        }
+    }
+
+    /// Checks if the contract is fulfilled
+    ///
+    /// # Returns
+    ///
+    /// `true` if the contract is fulfilled, `false` otherwise
+    pub fn is_fulfilled(&self) -> bool {
+        self.fulfilled
+    }
+
+    /// Attempts to fulfill the contract
+    ///
+    /// This method checks if all sub-contracts are valid and not expired,
+    /// and if so, marks the contract as fulfilled.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the contract was fulfilled, `false` otherwise
+    pub fn fulfill(&mut self) -> bool {
+        // Cannot fulfill an empty contract
+        if self.layers.is_empty() {
+            return false;
+        }
+
+        // Check if any sub-contracts are expired
+        for layer in &self.layers {
+            if layer.is_expired() {
+                return false;
+            }
+        }
+
+        // Mark contract as fulfilled
+        self.fulfilled = true;
+        true
+    }
+
+    /// Validates the contract's integrity
+    ///
+    /// Checks that each sub-contract's destination connects to the next
+    /// sub-contract's source, forming a complete chain.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the contract forms a valid chain, `false` otherwise
+    pub fn validate(&self) -> bool {
+        if self.layers.len() <= 1 {
+            return true;
+        }
+
+        for i in 0..self.layers.len() - 1 {
+            if self.layers[i].dest_id != self.layers[i + 1].source_id {
+                return false;
+            }
+        }
+
+        true
+    }
+}
+
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct P2PNode {
     pub id: usize,
     pub params: NodeParameters,
-    pub queue: Vec<u32>,
+    pub queue: VecDeque<SubContract>,
 }
 
 impl P2PNode {
@@ -230,7 +396,7 @@ impl P2PNode {
         P2PNode {
             id,
             params,
-            queue: Vec::new(),
+            queue: VecDeque::new(),
         }
     }
 }
