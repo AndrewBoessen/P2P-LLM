@@ -109,6 +109,33 @@ impl P2PNetwork {
         self.nodes.push(node);
     }
 
+    // Changes a nodes layer range in the network, automatically updating start_node_ids,
+    // end_node_ids if needed
+    //
+    // # Arguments
+    //
+    // * `node` - The node to change in the network
+    // * `new_layer` - The new layer range to set
+    pub fn change_node_layer(&mut self, node: &mut P2PNode, new_layer: u8) {
+        let node_id = node.id;
+        let current_layer = node.params.layer_range;
+        node.params.layer_range = new_layer;
+
+        // Remove node if previously was start or end
+        if current_layer == self.min_layer {
+            self.start_node_ids.retain(|id| *id != node_id);
+        } else if current_layer == self.max_layer {
+            self.end_node_ids.retain(|id| *id != node_id);
+        }
+
+        // Add to aprropriate list if new range is start or end
+        if new_layer == self.min_layer {
+            self.start_node_ids.push(node_id);
+        } else if new_layer == self.max_layer {
+            self.end_node_ids.push(node_id);
+        }
+    }
+
     /// Given the current nodes in the P2P network, create a directed graph.
     /// Directions in the graph represent compatibility between layer ranges,
     /// where an edge exists if the target node's layer range is one greater than
@@ -185,6 +212,7 @@ impl P2PNetwork {
 pub struct P2PNode {
     pub id: usize,
     pub params: NodeParameters,
+    pub queue: Vec<u32>,
 }
 
 impl P2PNode {
@@ -199,7 +227,11 @@ impl P2PNode {
     ///
     /// A new P2PNode instance
     pub fn new(id: usize, params: NodeParameters) -> Self {
-        P2PNode { id, params }
+        P2PNode {
+            id,
+            params,
+            queue: Vec::new(),
+        }
     }
 }
 
