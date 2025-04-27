@@ -218,10 +218,13 @@ impl<'a> P2PNetwork<'a> {
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct SubContract {
     /// Identifier for the source entity
-    pub source_id: u8,
+    pub source_id: usize,
+
+    /// Owner of the contract doing the computation
+    pub owner_id: usize,
 
     /// Identifier for the destination entity
-    pub dest_id: u8,
+    pub dest_id: usize,
 
     /// Time remaining (in seconds) before the sub-contract expires
     pub time_left: u32,
@@ -239,9 +242,10 @@ impl SubContract {
     /// # Returns
     ///
     /// A new `SubContract` instance
-    pub fn new(source_id: u8, dest_id: u8, time_left: u32) -> Self {
+    pub fn new(source_id: usize, owner_id: usize, dest_id: usize, time_left: u32) -> Self {
         SubContract {
             source_id,
+            owner_id,
             dest_id,
             time_left,
         }
@@ -266,12 +270,12 @@ impl SubContract {
         }
     }
 
-    /// Checks if the sub-contract has expired
+    /// Checks if the sub-contract has completed
     ///
     /// # Returns
     ///
     /// `true` if expired, `false` otherwise
-    pub fn is_expired(&self) -> bool {
+    pub fn is_complete(&self) -> bool {
         self.time_left == 0
     }
 }
