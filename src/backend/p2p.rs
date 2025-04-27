@@ -345,7 +345,7 @@ impl<'a> Contract<'a> {
 
         // Check if any sub-contracts are expired
         for layer in &self.layers {
-            if layer.is_expired() {
+            if layer.is_complete() {
                 return false;
             }
         }
