@@ -11,9 +11,9 @@ fn main() {
     let mut node_params_3 = NodeParameters::new(3, 1, 1);
 
     NodeParameters::set_latency(&mut node_params_0, 1, 5);
-    NodeParameters::set_latency(&mut node_params_1, 1, 9);
-    NodeParameters::set_latency(&mut node_params_2, 1, 2);
-    NodeParameters::set_latency(&mut node_params_3, 1, 7);
+    NodeParameters::set_latency(&mut node_params_1, 2, 9);
+    NodeParameters::set_latency(&mut node_params_2, 3, 2);
+    NodeParameters::set_latency(&mut node_params_3, 0, 7);
 
     let node0 = P2PNode::new(0, node_params_0);
     let node1 = P2PNode::new(1, node_params_1);
@@ -56,9 +56,11 @@ fn main() {
         Err(e) => panic!("Error sorting nodes: {}", e),
     };
 
-    println!("Sorted Nodes");
-    for node in sorted_nodes {
-        let l = NodeParameters::get_latency(&node.params, &1).expect("latency not defined");
-        println!("Node ID: {} Latency to 1: {}", node.id, l);
+    let path =
+        P2PNetwork::optimal_path(&network, &graph, &sorted_nodes, 0, 3).expect("No path found");
+
+    println!("Optimal Path:");
+    for v in path {
+        println!("{}", v.id);
     }
 }

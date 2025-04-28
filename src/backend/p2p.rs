@@ -152,7 +152,7 @@ impl<'a> P2PNetwork<'a> {
     pub fn optimal_path(
         &self,
         graph: &DirectedGraph<&P2PNode>,
-        order: Vec<&P2PNode>,
+        order: &Vec<&P2PNode>,
         start: usize,
         end: usize,
     ) -> Result<Vec<&P2PNode>, String> {
@@ -588,7 +588,7 @@ impl NodeParameters {
     /// # Returns
     ///
     /// The latency value if it exists, None otherwise
-    pub fn get_latency(&self, destination_node_id: &usize) -> Option<&u32> {
-        self.latencies.get(destination_node_id)
+    pub fn get_latency(&self, destination_node_id: usize) -> Option<&u32> {
+        self.latencies.get(&destination_node_id)
     }
 }
