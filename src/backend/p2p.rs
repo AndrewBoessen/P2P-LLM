@@ -1,7 +1,7 @@
 use std::collections::{HashMap, VecDeque};
 use std::hash::{Hash, Hasher};
 
-use super::graph;
+use super::graph::{self, DirectedGraph};
 
 /// Represents a peer-to-peer network composed of nodes with specific layer ranges
 /// and connectivity information.
@@ -14,7 +14,7 @@ use super::graph;
 /// * `min_layer` - The minimum layer range in the network
 /// * `max_layer` - The maximum layer range in the network
 pub struct P2PNetwork<'a> {
-    pub nodes: Vec<P2PNode>,
+    pub nodes: Vec<P2PNode<'a>>,
     pub start_node_ids: Vec<usize>,
     pub end_node_ids: Vec<usize>,
     pub min_layer: u8,
@@ -49,7 +49,7 @@ impl<'a> P2PNetwork<'a> {
     /// # Returns
     ///
     /// A new P2PNetwork with nodes categorized appropriately
-    pub fn from_nodes(nodes: Vec<P2PNode>) -> Self {
+    pub fn from_nodes(nodes: Vec<P2PNode<'a>>) -> Self {
         if nodes.is_empty() {
             return Self::new();
         }
@@ -86,7 +86,7 @@ impl<'a> P2PNetwork<'a> {
     /// # Arguments
     ///
     /// * `node` - The node to add to the network
-    pub fn add_node(&mut self, node: P2PNode) {
+    pub fn add_node(&mut self, node: P2PNode<'a>) {
         let node_id = node.id;
         let node_layer = node.params.layer_range;
 
@@ -137,6 +137,93 @@ impl<'a> P2PNetwork<'a> {
         } else if new_layer == self.max_layer {
             self.end_node_ids.push(node_id);
         }
+    }
+
+    /// Finds the optimal path between a min and max layer node
+    /// This uses dynamic programming to find optimal path
+    /// in a topological sorted graph
+    ///
+    /// # Arguments
+    ///
+    /// * `graph` - DAG representation of P2PNetwork
+    /// * `order` - Sorted list of nodes in graph
+    /// * `start` - Source node
+    /// * `end` - Destination node
+    pub fn optimal_path(
+        &self,
+        graph: &DirectedGraph<&P2PNode>,
+        order: Vec<&P2PNode>,
+        start: usize,
+        end: usize,
+    ) -> Result<Vec<&P2PNode>, String> {
+        // Initialize distance and predecessor arrays
+        let node_count = order.len();
+        let mut distances = vec![u32::MAX; node_count]; // Distance from start to each node
+        let mut predecessors = vec![usize::MAX; node_count]; // Previous node in optimal path
+
+        // Set distance from start node to itself as zero
+        distances[start] = 0;
+
+        // Process nodes in topological order
+        for current_node in order.iter() {
+            let current_id = current_node.id;
+
+            // Skip nodes that haven't been reached yet
+            if distances[current_id] == u32::MAX {
+                continue;
+            }
+
+            // Process all neighbors of the current node
+            for neighbor in DirectedGraph::neighbors(graph, current_node) {
+                let neighbor_id = neighbor.id;
+
+                // Calculate total time to reach neighbor through current node
+                let edge_latency =
+                    current_node
+                        .params
+                        .latencies
+                        .get(&neighbor_id)
+                        .ok_or_else(|| {
+                            format!(
+                                "Missing latency data for edge {}->{}",
+                                current_id, neighbor_id
+                            )
+                        })?;
+
+                let queue_time = P2PNode::total_time_in_queue(neighbor);
+                let processing_time = neighbor.params.computational_cost;
+
+                let total_time = edge_latency + queue_time + processing_time;
+
+                // If we found a better path to the neighbor, update it
+                if distances[neighbor_id] > distances[current_id].saturating_add(total_time) {
+                    distances[neighbor_id] = distances[current_id].saturating_add(total_time);
+                    predecessors[neighbor_id] = current_id;
+                }
+            }
+        }
+
+        // Check if we found a path to the destination
+        if distances[end] == u32::MAX {
+            return Err(format!("No path found from node {} to node {}", start, end));
+        }
+
+        // Reconstruct the path by working backwards from end to start
+        let mut path = Vec::new();
+        let mut current = end;
+
+        while current != usize::MAX {
+            // Find the node by ID and add to path
+            match P2PNetwork::find_node_by_id(self, current) {
+                Some(node) => path.push(node),
+                None => return Err(format!("Node with ID {} not found in network", current)),
+            }
+
+            current = predecessors[current];
+        }
+
+        // Return the path (from end to start)
+        Ok(path)
     }
 
     /// Given the current nodes in the P2P network, create a directed graph.
@@ -228,6 +315,9 @@ pub struct SubContract {
 
     /// Time remaining (in seconds) before the sub-contract expires
     pub time_left: u32,
+
+    /// Price to fulfill contract
+    pub price: u64,
 }
 
 impl SubContract {
@@ -242,12 +332,19 @@ impl SubContract {
     /// # Returns
     ///
     /// A new `SubContract` instance
-    pub fn new(source_id: usize, owner_id: usize, dest_id: usize, time_left: u32) -> Self {
+    pub fn new(
+        source_id: usize,
+        owner_id: usize,
+        dest_id: usize,
+        time_left: u32,
+        price: u64,
+    ) -> Self {
         SubContract {
             source_id,
             owner_id,
             dest_id,
             time_left,
+            price,
         }
     }
 
@@ -287,6 +384,7 @@ impl SubContract {
 /// relationship between all sub-contracts.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Contract<'a> {
+    owner: usize,
     fulfilled: bool,
     layers: Vec<&'a SubContract>,
 }
@@ -296,27 +394,17 @@ impl<'a> Contract<'a> {
     ///
     /// # Arguments
     ///
+    /// * `owner` - Id of owner that owns the contract
     /// * `layers` - A vector of references to `SubContract`s
     ///
     /// # Returns
     ///
     /// A new `Contract` instance
-    pub fn new(layers: Vec<&'a SubContract>) -> Self {
+    pub fn new(layers: Vec<&'a SubContract>, owner: usize) -> Self {
         Contract {
+            owner,
             fulfilled: false,
             layers,
-        }
-    }
-
-    /// Creates an empty contract with no sub-contracts
-    ///
-    /// # Returns
-    ///
-    /// A new empty `Contract` instance
-    pub fn empty() -> Self {
-        Contract {
-            fulfilled: false,
-            layers: Vec::new(),
         }
     }
 
@@ -379,13 +467,15 @@ impl<'a> Contract<'a> {
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct P2PNode {
+pub struct P2PNode<'a> {
     pub id: usize,
+    pub price: u64,
     pub params: NodeParameters,
     pub queue: VecDeque<SubContract>,
+    pub completed_contracts: VecDeque<&'a Contract<'a>>,
 }
 
-impl P2PNode {
+impl<'a> P2PNode<'a> {
     /// Creates a new P2PNode with the given id and parameters.
     ///
     /// # Arguments
@@ -399,9 +489,26 @@ impl P2PNode {
     pub fn new(id: usize, params: NodeParameters) -> Self {
         P2PNode {
             id,
+            price: 0,
             params,
             queue: VecDeque::new(),
+            completed_contracts: VecDeque::new(),
         }
+    }
+
+    /// Gets time left in current queue state of the node.
+    /// This sums the total time left for every subcontract in the queue
+    ///
+    /// # Returns
+    ///
+    /// Time in miliseconds of items in queue
+    pub fn total_time_in_queue(&self) -> u32 {
+        let mut time = 0;
+        for contract in &self.queue {
+            time += contract.time_left;
+        }
+
+        time
     }
 }
 
@@ -410,7 +517,7 @@ impl P2PNode {
 /// This implementation only hashes the `id` field, ignoring the `params` field.
 /// This means two P2PNodes with the same id will hash to the same value,
 /// regardless of their parameters.
-impl Hash for P2PNode {
+impl<'a> Hash for P2PNode<'a> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state);
     }
@@ -423,7 +530,6 @@ impl Hash for P2PNode {
 /// * `layer_range` - Range of layers node i has
 /// * `latencies` - Map of latencies from this node to other nodes, where the key is the node ID
 /// * `computational_cost` - Computational cost of the node
-/// * `preload_cost` - Preload cost of the node
 /// * `embedding_cost` - Embedding cost of the node
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct NodeParameters {
@@ -437,9 +543,6 @@ pub struct NodeParameters {
     /// Computational cost of the node (cᵢ)
     pub computational_cost: u32,
 
-    /// Preload cost of the node (pᵢ)
-    pub preload_cost: u32,
-
     /// Embedding cost of the node (eᵢ)
     pub embedding_cost: u32,
 }
@@ -452,23 +555,16 @@ impl NodeParameters {
     /// * `layer_start` - The starting layer index (must be less than `layer_end`)
     /// * `layer_end` - The ending layer index (must be less than L and greater than `layer_start`)
     /// * `computational_cost` - Computational cost value
-    /// * `preload_cost` - Preload cost value
     /// * `embedding_cost` - Embedding cost value
     ///
     /// # Returns
     ///
     /// A new NodeParameters instance with empty latencies map
-    pub fn new(
-        layer_range: u8,
-        computational_cost: u32,
-        preload_cost: u32,
-        embedding_cost: u32,
-    ) -> Self {
+    pub fn new(layer_range: u8, computational_cost: u32, embedding_cost: u32) -> Self {
         NodeParameters {
             layer_range,
             latencies: HashMap::new(),
             computational_cost,
-            preload_cost,
             embedding_cost,
         }
     }

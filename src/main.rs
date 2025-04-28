@@ -5,10 +5,10 @@ use backend::graph::DirectedGraph;
 use backend::p2p::{NodeParameters, P2PNetwork, P2PNode};
 
 fn main() {
-    let mut node_params_0 = NodeParameters::new(0, 1, 1, 1);
-    let mut node_params_1 = NodeParameters::new(1, 1, 1, 1);
-    let mut node_params_2 = NodeParameters::new(2, 1, 1, 1);
-    let mut node_params_3 = NodeParameters::new(3, 1, 1, 1);
+    let mut node_params_0 = NodeParameters::new(0, 1, 1);
+    let mut node_params_1 = NodeParameters::new(1, 1, 1);
+    let mut node_params_2 = NodeParameters::new(2, 1, 1);
+    let mut node_params_3 = NodeParameters::new(3, 1, 1);
 
     NodeParameters::set_latency(&mut node_params_0, 1, 5);
     NodeParameters::set_latency(&mut node_params_1, 1, 9);
