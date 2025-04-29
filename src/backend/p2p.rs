@@ -13,16 +13,16 @@ use super::graph::{self, DirectedGraph};
 /// * `end_node_ids` - IDs of nodes that serve as terminal points in the network (at max_layer)
 /// * `min_layer` - The minimum layer range in the network
 /// * `max_layer` - The maximum layer range in the network
-pub struct P2PNetwork<'a> {
-    pub nodes: Vec<P2PNode<'a>>,
+pub struct P2PNetwork {
+    pub nodes: Vec<P2PNode>,
     pub start_node_ids: Vec<usize>,
     pub end_node_ids: Vec<usize>,
     pub min_layer: u8,
     pub max_layer: u8,
-    pub contracts: Vec<Contract<'a>>,
+    pub contracts: Vec<Contract>,
 }
 
-impl<'a> P2PNetwork<'a> {
+impl P2PNetwork {
     /// Creates a new P2PNetwork with empty node vectors and default layer bounds.
     ///
     /// # Returns
@@ -49,7 +49,7 @@ impl<'a> P2PNetwork<'a> {
     /// # Returns
     ///
     /// A new P2PNetwork with nodes categorized appropriately
-    pub fn from_nodes(nodes: Vec<P2PNode<'a>>) -> Self {
+    pub fn from_nodes(nodes: Vec<P2PNode>) -> Self {
         if nodes.is_empty() {
             return Self::new();
         }
@@ -86,7 +86,7 @@ impl<'a> P2PNetwork<'a> {
     /// # Arguments
     ///
     /// * `node` - The node to add to the network
-    pub fn add_node(&mut self, node: P2PNode<'a>) {
+    pub fn add_node(&mut self, node: P2PNode) {
         let node_id = node.id;
         let node_layer = node.params.layer_range;
 
@@ -137,6 +137,29 @@ impl<'a> P2PNetwork<'a> {
         } else if new_layer == self.max_layer {
             self.end_node_ids.push(node_id);
         }
+    }
+
+    /// Gets time in all active sub-contracts for the given node
+    ///
+    /// # Arguments
+    ///
+    /// * `node_id` - Id of node to get time of
+    ///
+    /// # Returns
+    ///
+    /// Time left in the queue for given node
+    pub fn time_in_queue(&self, node_id: usize) -> u32 {
+        let mut total_time = 0;
+
+        for c in self.contracts.iter() {
+            for s in c.layers.iter() {
+                if s.owner_id == node_id {
+                    total_time += s.time_left;
+                }
+            }
+        }
+
+        total_time
     }
 
     /// Finds the optimal path between a min and max layer node
@@ -190,7 +213,7 @@ impl<'a> P2PNetwork<'a> {
                             )
                         })?;
 
-                let queue_time = P2PNode::total_time_in_queue(neighbor);
+                let queue_time = P2PNetwork::time_in_queue(self, neighbor_id);
                 let processing_time = neighbor.params.computational_cost;
 
                 let total_time = edge_latency + queue_time + processing_time;
@@ -260,6 +283,63 @@ impl<'a> P2PNetwork<'a> {
         graph
     }
 
+    /// Creates a new contract for a given sequence of nodes
+    ///
+    /// # Arguments
+    ///
+    /// * `owner` - Creator of the contract
+    /// * `nodes` - Sequence of nodes in contract
+    ///
+    /// # Returns
+    ///
+    /// New contract in network
+    pub fn create_contract(&self, owner: usize, nodes: Vec<&P2PNode>) -> Result<Contract, String> {
+        let mut sub_contracts = Vec::new();
+
+        let start_node = P2PNetwork::start_nodes(self);
+        let end_node = P2PNetwork::end_nodes(self);
+
+        if !start_node.contains(&nodes[1]) {
+            return Err(String::from("first node is not a start node"));
+        }
+
+        if !end_node.contains(&nodes[nodes.len() - 2]) {
+            return Err(String::from("last node is not an end node"));
+        }
+
+        if nodes[0] != nodes[nodes.len() - 1] {
+            return Err(String::from("first and last nodes do not match"));
+        }
+
+        for i in 1..nodes.len() - 1 {
+            let source_idx = i - 1;
+            let owner_idx = i;
+            let dest_idx = i + 1;
+
+            let source_node = &nodes[source_idx];
+            let owner_node = &nodes[owner_idx];
+            let dest_node = &nodes[dest_idx];
+
+            let new_subcontract = SubContract::new(
+                source_node.id,
+                owner_node.id,
+                dest_node.id,
+                owner_node.params.computational_cost,
+                owner_node.price,
+            );
+
+            // add to list of subcontracts
+            sub_contracts.push(new_subcontract);
+        }
+
+        let contract = Contract::new(sub_contracts, owner);
+        if !Contract::validate(&contract) {
+            return Err(String::from("contract is invalid"));
+        }
+
+        Ok(contract)
+    }
+
     /// Gets references to all start nodes (nodes with the minimum layer range).
     ///
     /// # Returns
@@ -295,6 +375,19 @@ impl<'a> P2PNetwork<'a> {
     /// Option containing a reference to the node if found, None otherwise
     pub fn find_node_by_id(&self, id: usize) -> Option<&P2PNode> {
         self.nodes.iter().find(|node| node.id == id)
+    }
+
+    /// Finds a node in the network by its ID and returns a mutable reference.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The ID of the node to find
+    ///
+    /// # Returns
+    ///
+    /// Option containing a mutable reference to the node if found, None otherwise
+    pub fn find_node_by_id_mut(&mut self, id: usize) -> Option<&mut P2PNode> {
+        self.nodes.iter_mut().find(|node| node.id == id)
     }
 }
 
@@ -383,13 +476,13 @@ impl SubContract {
 /// in sequence. The contract tracks fulfillment status and manages the
 /// relationship between all sub-contracts.
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct Contract<'a> {
+pub struct Contract {
     owner: usize,
     fulfilled: bool,
-    layers: Vec<&'a SubContract>,
+    layers: Vec<SubContract>,
 }
 
-impl<'a> Contract<'a> {
+impl Contract {
     /// Creates a new contract with specified sub-contracts
     ///
     /// # Arguments
@@ -400,7 +493,7 @@ impl<'a> Contract<'a> {
     /// # Returns
     ///
     /// A new `Contract` instance
-    pub fn new(layers: Vec<&'a SubContract>, owner: usize) -> Self {
+    pub fn new(layers: Vec<SubContract>, owner: usize) -> Self {
         Contract {
             owner,
             fulfilled: false,
@@ -467,20 +560,19 @@ impl<'a> Contract<'a> {
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct P2PNode<'a> {
+pub struct P2PNode {
     pub id: usize,
     pub price: u64,
     pub params: NodeParameters,
-    pub queue: VecDeque<SubContract>,
-    pub completed_contracts: VecDeque<&'a Contract<'a>>,
 }
 
-impl<'a> P2PNode<'a> {
+impl P2PNode {
     /// Creates a new P2PNode with the given id and parameters.
     ///
     /// # Arguments
     ///
     /// * `id` - A unique identifier for this node
+    /// * `price` - Cost of computation with node
     /// * `params` - The parameters that configure this node's behavior
     ///
     /// # Returns
@@ -491,24 +583,7 @@ impl<'a> P2PNode<'a> {
             id,
             price: 0,
             params,
-            queue: VecDeque::new(),
-            completed_contracts: VecDeque::new(),
         }
-    }
-
-    /// Gets time left in current queue state of the node.
-    /// This sums the total time left for every subcontract in the queue
-    ///
-    /// # Returns
-    ///
-    /// Time in miliseconds of items in queue
-    pub fn total_time_in_queue(&self) -> u32 {
-        let mut time = 0;
-        for contract in &self.queue {
-            time += contract.time_left;
-        }
-
-        time
     }
 }
 
@@ -517,7 +592,7 @@ impl<'a> P2PNode<'a> {
 /// This implementation only hashes the `id` field, ignoring the `params` field.
 /// This means two P2PNodes with the same id will hash to the same value,
 /// regardless of their parameters.
-impl<'a> Hash for P2PNode<'a> {
+impl Hash for P2PNode {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state);
     }

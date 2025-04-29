@@ -9,20 +9,24 @@ fn main() {
     let mut node_params_1 = NodeParameters::new(1, 1, 1);
     let mut node_params_2 = NodeParameters::new(2, 1, 1);
     let mut node_params_3 = NodeParameters::new(3, 1, 1);
+    let mut node_params_4 = NodeParameters::new(1, 10, 1);
 
     NodeParameters::set_latency(&mut node_params_0, 1, 5);
     NodeParameters::set_latency(&mut node_params_1, 2, 9);
-    NodeParameters::set_latency(&mut node_params_2, 3, 2);
+    NodeParameters::set_latency(&mut node_params_2, 4, 2);
     NodeParameters::set_latency(&mut node_params_3, 0, 7);
+    NodeParameters::set_latency(&mut node_params_4, 2, 11);
+    NodeParameters::set_latency(&mut node_params_0, 3, 11);
 
     let node0 = P2PNode::new(0, node_params_0);
     let node1 = P2PNode::new(1, node_params_1);
     let node2 = P2PNode::new(2, node_params_2);
-    let node3 = P2PNode::new(3, node_params_3);
+    let node3 = P2PNode::new(4, node_params_3);
+    let node4 = P2PNode::new(3, node_params_4);
 
-    let nodes = vec![node0, node1, node2, node3];
+    let nodes = vec![node0, node1, node2, node3, node4];
 
-    let network = P2PNetwork::from_nodes(nodes);
+    let mut network = P2PNetwork::from_nodes(nodes);
 
     let graph = P2PNetwork::make_graph(&network);
 
@@ -57,10 +61,10 @@ fn main() {
     };
 
     let path =
-        P2PNetwork::optimal_path(&network, &graph, &sorted_nodes, 0, 3).expect("No path found");
+        P2PNetwork::optimal_path(&network, &graph, &sorted_nodes, 0, 4).expect("No path found");
 
-    println!("Optimal Path:");
-    for v in path {
-        println!("{}", v.id);
-    }
+    let contract =
+        P2PNetwork::create_contract(&network, 0, path).expect("Contract could not be created");
+
+    network.contracts.push(contract);
 }
