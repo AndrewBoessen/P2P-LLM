@@ -40,6 +40,63 @@ impl P2PNetwork {
         }
     }
 
+    /// Update the state of the network after given time period
+    ///
+    /// # Arguments
+    ///
+    /// * `period` - Time in miliseconds
+    pub fn update_network(&mut self, period: u32) -> Vec<usize> {
+        // State of each nodes currently
+        let mut states = vec![false; self.nodes.len()];
+        // If nodes has a pending contract
+        let mut active = vec![false; self.nodes.len()];
+
+        // Process each contract
+        let mut contracts_to_update = Vec::new();
+
+        for contract in self.contracts.iter_mut() {
+            if !contract.fulfilled {
+                active[contract.owner] = true;
+
+                if let Some(sub) = contract.layers.front_mut() {
+                    // owner is in use this round
+                    if !states[sub.owner_id] {
+                        states[sub.owner_id] = true;
+
+                        if !SubContract::tick(sub, period) {
+                            // Store the IDs for later balance update
+                            contracts_to_update.push((sub.price, sub.owner_id, contract.owner));
+                            // Remove the front layer
+                            contract.layers.pop_front();
+                        }
+                    }
+                }
+
+                Contract::fulfill(contract);
+            }
+        }
+
+        // Update balances using the collected information
+        for (price, seller_id, buyer_id) in contracts_to_update {
+            let seller = self
+                .find_node_by_id_mut(seller_id)
+                .expect("owner of contract not found");
+            seller.balance += price;
+
+            let buyer = self
+                .find_node_by_id_mut(buyer_id)
+                .expect("owner of sub contract not found");
+            buyer.balance -= price;
+        }
+
+        // Create contracts for nodes without active contracts
+        active
+            .iter()
+            .enumerate()
+            .filter_map(|(index, &value)| (!value).then_some(index))
+            .collect()
+    }
+
     /// Creates a new P2PNetwork from a list of nodes, automatically determining
     /// which nodes should be considered start nodes and end nodes based on their layer ranges.
     ///
@@ -264,8 +321,9 @@ impl P2PNetwork {
 
                 let queue_time = P2PNetwork::time_in_queue(self, neighbor_id);
                 let processing_time = neighbor.params.computational_cost;
+                let cost = neighbor.price;
 
-                let total_time = edge_latency + queue_time + processing_time;
+                let total_time = edge_latency + queue_time + processing_time + cost;
 
                 // If we found a better path to the neighbor, update it
                 if distances[neighbor_id] > distances[current_id].saturating_add(total_time) {
@@ -462,7 +520,7 @@ pub struct SubContract {
     pub time_left: u32,
 
     /// Price to fulfill contract
-    pub price: u64,
+    pub price: u32,
 }
 
 impl SubContract {
@@ -482,7 +540,7 @@ impl SubContract {
         owner_id: usize,
         dest_id: usize,
         time_left: u32,
-        price: u64,
+        price: u32,
     ) -> Self {
         SubContract {
             source_id,
@@ -510,15 +568,6 @@ impl SubContract {
             self.time_left -= seconds;
             true
         }
-    }
-
-    /// Checks if the sub-contract has completed
-    ///
-    /// # Returns
-    ///
-    /// `true` if expired, `false` otherwise
-    pub fn is_complete(&self) -> bool {
-        self.time_left == 0
     }
 }
 
@@ -553,15 +602,6 @@ impl Contract {
         }
     }
 
-    /// Checks if the contract is fulfilled
-    ///
-    /// # Returns
-    ///
-    /// `true` if the contract is fulfilled, `false` otherwise
-    pub fn is_fulfilled(&self) -> bool {
-        self.fulfilled
-    }
-
     /// Attempts to fulfill the contract
     ///
     /// This method checks if all sub-contracts are valid and not expired,
@@ -571,21 +611,13 @@ impl Contract {
     ///
     /// `true` if the contract was fulfilled, `false` otherwise
     pub fn fulfill(&mut self) -> bool {
-        // Cannot fulfill an empty contract
-        if self.layers.is_empty() {
-            return false;
-        }
-
-        // Check if any sub-contracts are expired
-        for layer in &self.layers {
-            if layer.is_complete() {
-                return false;
+        match self.layers.is_empty() {
+            true => {
+                self.fulfilled = true;
+                true
             }
+            false => false,
         }
-
-        // Mark contract as fulfilled
-        self.fulfilled = true;
-        true
     }
 
     /// Prints the contract's state and information about its subcontracts
@@ -614,20 +646,12 @@ impl Contract {
                 println!("    Destination ID: {}", subcontract.dest_id);
                 println!("    Time Left: {} seconds", subcontract.time_left);
                 println!("    Price: {} tokens", subcontract.price);
-                println!(
-                    "    Status: {}",
-                    if subcontract.is_complete() {
-                        "Complete"
-                    } else {
-                        "In Progress"
-                    }
-                );
             }
         }
 
         println!(
             "\nTotal Contract Value: {} tokens",
-            self.layers.iter().map(|sc| sc.price).sum::<u64>()
+            self.layers.iter().map(|sc| sc.price).sum::<u32>()
         );
     }
 }
@@ -635,7 +659,8 @@ impl Contract {
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct P2PNode {
     pub id: usize,
-    pub price: u64,
+    pub price: u32,
+    pub balance: u32,
     pub params: NodeParameters,
 }
 
@@ -655,6 +680,7 @@ impl P2PNode {
         P2PNode {
             id,
             price: 0,
+            balance: 0,
             params,
         }
     }
