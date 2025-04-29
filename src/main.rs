@@ -59,12 +59,4 @@ fn main() {
         Ok(nodes) => nodes,
         Err(e) => panic!("Error sorting nodes: {}", e),
     };
-
-    let path =
-        P2PNetwork::optimal_path(&network, &graph, &sorted_nodes, 0, 4).expect("No path found");
-
-    let contract =
-        P2PNetwork::create_contract(&network, 0, path).expect("Contract could not be created");
-
-    network.contracts.push(contract);
 }

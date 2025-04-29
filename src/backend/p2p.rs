@@ -13,6 +13,7 @@ use super::graph::{self, DirectedGraph};
 /// * `end_node_ids` - IDs of nodes that serve as terminal points in the network (at max_layer)
 /// * `min_layer` - The minimum layer range in the network
 /// * `max_layer` - The maximum layer range in the network
+/// * `contracts` - List of contracts the network has processed
 pub struct P2PNetwork {
     pub nodes: Vec<P2PNode>,
     pub start_node_ids: Vec<usize>,
@@ -162,6 +163,54 @@ impl P2PNetwork {
         total_time
     }
 
+    /// Finds the optimal path for a node to form a complete path in the network
+    /// Search over all start, end combinations and take minimum
+    ///
+    /// # Arguments
+    ///
+    /// * `node` - Node to start from
+    /// * `graph` - DAG representation of P2PNetwork
+    /// * `order` - Sorted list of nodes in graph
+    ///
+    /// # Returns
+    ///
+    /// Gives sequence of node ids that form the shortest path
+    pub fn fastest_path_for_node(
+        &self,
+        node: &P2PNode,
+        graph: &DirectedGraph<&P2PNode>,
+        order: &Vec<&P2PNode>,
+    ) -> Result<Vec<&P2PNode>, String> {
+        let mut min_distance = u32::MAX;
+        let mut shortest_path: Option<Vec<&P2PNode>> = None;
+        for start_node in P2PNetwork::start_nodes(self) {
+            for end_node in P2PNetwork::end_nodes(self) {
+                let start_id = start_node.id;
+                let end_id = end_node.id;
+
+                let distance_to_start = NodeParameters::get_latency(&node.params, start_id)
+                    .expect("latency not defined");
+                let distance_to_end =
+                    NodeParameters::get_latency(&node.params, end_id).expect("latency not defined");
+
+                let (path, distance) =
+                    P2PNetwork::optimal_path(self, graph, order, start_id, end_id)
+                        .expect("path not found");
+
+                let total_distance = distance + distance_to_start + distance_to_end;
+
+                if total_distance < min_distance {
+                    min_distance = total_distance;
+                    shortest_path = Some(path);
+                }
+            }
+        }
+        match shortest_path {
+            Some(path) => Ok(path),
+            None => Err(String::from("No path found in the network")),
+        }
+    }
+
     /// Finds the optimal path between a min and max layer node
     /// This uses dynamic programming to find optimal path
     /// in a topological sorted graph
@@ -178,7 +227,7 @@ impl P2PNetwork {
         order: &Vec<&P2PNode>,
         start: usize,
         end: usize,
-    ) -> Result<Vec<&P2PNode>, String> {
+    ) -> Result<(Vec<&P2PNode>, u32), String> {
         // Initialize distance and predecessor arrays
         let node_count = order.len();
         let mut distances = vec![u32::MAX; node_count]; // Distance from start to each node
@@ -246,7 +295,7 @@ impl P2PNetwork {
         }
 
         // Return the path (from end to start)
-        Ok(path)
+        Ok((path, distances[end]))
     }
 
     /// Given the current nodes in the P2P network, create a directed graph.
