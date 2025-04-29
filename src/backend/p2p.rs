@@ -189,9 +189,9 @@ impl P2PNetwork {
                 let end_id = end_node.id;
 
                 let distance_to_start = NodeParameters::get_latency(&node.params, start_id)
-                    .expect("latency not defined");
-                let distance_to_end =
-                    NodeParameters::get_latency(&node.params, end_id).expect("latency not defined");
+                    .expect("latency to start not defined");
+                let distance_to_end = NodeParameters::get_latency(&end_node.params, node.id)
+                    .expect("latency from end not defined");
 
                 let (path, distance) =
                     P2PNetwork::optimal_path(self, graph, order, start_id, end_id)
@@ -343,31 +343,39 @@ impl P2PNetwork {
     ///
     /// New contract in network
     pub fn create_contract(&self, owner: usize, nodes: Vec<&P2PNode>) -> Result<Contract, String> {
-        let mut sub_contracts = Vec::new();
+        let mut sub_contracts = VecDeque::new();
 
         let start_node = P2PNetwork::start_nodes(self);
         let end_node = P2PNetwork::end_nodes(self);
 
-        if !start_node.contains(&nodes[1]) {
+        if !start_node.contains(&nodes[nodes.len() - 1]) {
             return Err(String::from("first node is not a start node"));
         }
 
-        if !end_node.contains(&nodes[nodes.len() - 2]) {
+        if !end_node.contains(&nodes[0]) {
             return Err(String::from("last node is not an end node"));
         }
 
-        if nodes[0] != nodes[nodes.len() - 1] {
-            return Err(String::from("first and last nodes do not match"));
-        }
-
-        for i in 1..nodes.len() - 1 {
-            let source_idx = i - 1;
+        for i in 0..nodes.len() {
+            let dest_idx = if i > 0 { i - 1 } else { usize::MAX };
             let owner_idx = i;
-            let dest_idx = i + 1;
+            let source_idx = if i < nodes.len() - 1 {
+                i + 1
+            } else {
+                usize::MAX
+            };
 
-            let source_node = &nodes[source_idx];
+            let source_node = if source_idx == usize::MAX {
+                P2PNetwork::find_node_by_id(self, owner).expect("owner not in network")
+            } else {
+                &nodes[source_idx]
+            };
             let owner_node = &nodes[owner_idx];
-            let dest_node = &nodes[dest_idx];
+            let dest_node = if dest_idx == usize::MAX {
+                P2PNetwork::find_node_by_id(self, owner).expect("owner not in network")
+            } else {
+                &nodes[dest_idx]
+            };
 
             let new_subcontract = SubContract::new(
                 source_node.id,
@@ -378,15 +386,10 @@ impl P2PNetwork {
             );
 
             // add to list of subcontracts
-            sub_contracts.push(new_subcontract);
+            sub_contracts.push_front(new_subcontract);
         }
 
-        let contract = Contract::new(sub_contracts, owner);
-        if !Contract::validate(&contract) {
-            return Err(String::from("contract is invalid"));
-        }
-
-        Ok(contract)
+        Ok(Contract::new(sub_contracts, owner))
     }
 
     /// Gets references to all start nodes (nodes with the minimum layer range).
@@ -528,7 +531,7 @@ impl SubContract {
 pub struct Contract {
     owner: usize,
     fulfilled: bool,
-    layers: Vec<SubContract>,
+    layers: VecDeque<SubContract>,
 }
 
 impl Contract {
@@ -542,7 +545,7 @@ impl Contract {
     /// # Returns
     ///
     /// A new `Contract` instance
-    pub fn new(layers: Vec<SubContract>, owner: usize) -> Self {
+    pub fn new(layers: VecDeque<SubContract>, owner: usize) -> Self {
         Contract {
             owner,
             fulfilled: false,
@@ -585,26 +588,47 @@ impl Contract {
         true
     }
 
-    /// Validates the contract's integrity
+    /// Prints the contract's state and information about its subcontracts
     ///
-    /// Checks that each sub-contract's destination connects to the next
-    /// sub-contract's source, forming a complete chain.
-    ///
-    /// # Returns
-    ///
-    /// `true` if the contract forms a valid chain, `false` otherwise
-    pub fn validate(&self) -> bool {
-        if self.layers.len() <= 1 {
-            return true;
-        }
+    /// This method outputs a formatted representation of the contract,
+    /// showing its owner ID, fulfillment status, and details of each subcontract.
+    pub fn print(&self) {
+        println!("Contract Information:");
+        println!("  Owner ID: {}", self.owner);
+        println!(
+            "  Status: {}",
+            if self.fulfilled {
+                "Fulfilled"
+            } else {
+                "Pending"
+            }
+        );
+        println!("  Subcontract Count: {}", self.layers.len());
 
-        for i in 0..self.layers.len() - 1 {
-            if self.layers[i].dest_id != self.layers[i + 1].source_id {
-                return false;
+        if !self.layers.is_empty() {
+            println!("\nSubcontracts (from first to last):");
+            for (i, subcontract) in self.layers.iter().enumerate() {
+                println!("  Subcontract #{}:", i + 1);
+                println!("    Source ID: {}", subcontract.source_id);
+                println!("    Owner ID: {}", subcontract.owner_id);
+                println!("    Destination ID: {}", subcontract.dest_id);
+                println!("    Time Left: {} seconds", subcontract.time_left);
+                println!("    Price: {} tokens", subcontract.price);
+                println!(
+                    "    Status: {}",
+                    if subcontract.is_complete() {
+                        "Complete"
+                    } else {
+                        "In Progress"
+                    }
+                );
             }
         }
 
-        true
+        println!(
+            "\nTotal Contract Value: {} tokens",
+            self.layers.iter().map(|sc| sc.price).sum::<u64>()
+        );
     }
 }
 

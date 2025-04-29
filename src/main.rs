@@ -2,7 +2,7 @@ mod backend;
 
 // import p2p network
 use backend::graph::DirectedGraph;
-use backend::p2p::{NodeParameters, P2PNetwork, P2PNode};
+use backend::p2p::{Contract, NodeParameters, P2PNetwork, P2PNode};
 
 fn main() {
     let mut node_params_0 = NodeParameters::new(0, 1, 1);
@@ -12,6 +12,8 @@ fn main() {
     let mut node_params_4 = NodeParameters::new(1, 10, 1);
 
     NodeParameters::set_latency(&mut node_params_0, 1, 5);
+    NodeParameters::set_latency(&mut node_params_0, 0, 0);
+    NodeParameters::set_latency(&mut node_params_4, 0, 3);
     NodeParameters::set_latency(&mut node_params_1, 2, 9);
     NodeParameters::set_latency(&mut node_params_2, 4, 2);
     NodeParameters::set_latency(&mut node_params_3, 0, 7);
@@ -37,11 +39,11 @@ fn main() {
 
     let min_nodes = P2PNetwork::start_nodes(&network);
 
-    for node in min_nodes {
+    for node in min_nodes.iter() {
         println!("Start Node: {}", node.id);
     }
     let max_nodes = P2PNetwork::end_nodes(&network);
-    for node in max_nodes {
+    for node in max_nodes.iter() {
         println!("End Node: {}", node.id);
     }
 
@@ -59,4 +61,20 @@ fn main() {
         Ok(nodes) => nodes,
         Err(e) => panic!("Error sorting nodes: {}", e),
     };
+
+    let first_node = match P2PNetwork::find_node_by_id(&network, 0) {
+        Some(n) => n,
+        None => panic!("Node 0 not found"),
+    };
+
+    let fastest_path =
+        P2PNetwork::fastest_path_for_node(&network, first_node, &graph, &sorted_nodes)
+            .expect("no path found");
+
+    let contract = P2PNetwork::create_contract(&network, 0, fastest_path)
+        .expect("contract could not be created");
+
+    Contract::print(&contract);
+
+    network.contracts.push(contract);
 }
