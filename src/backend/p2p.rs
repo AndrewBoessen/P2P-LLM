@@ -3,13 +3,9 @@ use std::hash::{Hash, Hasher};
 
 use super::graph::{self, DirectedGraph};
 
-fn iter_price(old_price: f64, a: u32, c: f64) -> f64 {
-    let ratio = (a * a) as f64 / old_price;
-    let inner = 1.0 - (old_price / a as f64) + (1.0 / c);
-
-    old_price + ratio * inner
+fn price_gradient(old: f64, prob: f64, cost: u32) -> f64 {
+    prob + (old / cost as f64) * prob * (prob - 1.0)
 }
-
 /// Represents a peer-to-peer network composed of nodes with specific layer ranges
 /// and connectivity information.
 ///
@@ -47,24 +43,42 @@ impl P2PNetwork {
         }
     }
 
+    pub fn nodes_without_contracts(&self) -> Vec<&P2PNode> {
+        // check if there is an active contract for every contract
+        // otherwise return the nodes without active contracts
+        let mut nodes = vec![true; self.nodes.len()];
+
+        for contract in self.contracts.iter() {
+            if contract.fulfilled == false {
+                nodes[contract.owner] = false;
+            }
+        }
+
+        nodes
+            .iter()
+            .enumerate()
+            .filter_map(|(node_id, value)| {
+                value.then_some(
+                    P2PNetwork::find_node_by_id(self, node_id).expect("node not in network"),
+                )
+            })
+            .collect()
+    }
+
     /// Update the state of the network after given time period
     ///
     /// # Arguments
     ///
     /// * `period` - Time in miliseconds
-    pub fn update_network(&mut self, period: u32) -> Vec<usize> {
+    pub fn update_network(&mut self, period: u32) {
         // State of each nodes currently
         let mut states = vec![false; self.nodes.len()];
-        // If nodes has a pending contract
-        let mut active = vec![false; self.nodes.len()];
 
         // Process each contract
         let mut contracts_to_update = Vec::new();
 
         for contract in self.contracts.iter_mut() {
             if !contract.fulfilled {
-                active[contract.owner] = true;
-
                 if let Some(sub) = contract.layers.front_mut() {
                     // owner is in use this round
                     if !states[sub.owner_id] {
@@ -96,12 +110,16 @@ impl P2PNetwork {
             buyer.balance -= price;
         }
 
-        // Create contracts for nodes without active contracts
-        active
-            .iter()
-            .enumerate()
-            .filter_map(|(index, &value)| (!value).then_some(index))
-            .collect()
+        // udpate prices that node charge
+        let mut new_prices = vec![0.0; self.nodes.len()];
+        for node in self.nodes.iter() {
+            let new_price = P2PNetwork::update_price(self, node);
+            new_prices[node.id] = new_price;
+        }
+
+        for node_mut in self.nodes.iter_mut() {
+            node_mut.price = new_prices[node_mut.id];
+        }
     }
 
     /// Find share of subcontracts that a node will recieve
@@ -196,21 +214,11 @@ impl P2PNetwork {
     /// New price to use
     pub fn update_price(&self, node: &P2PNode) -> f64 {
         let cur_price = node.price;
-        let layer = node.params.layer_range;
         let cost = node.params.computational_cost;
 
-        let nodes_in_layer: Vec<f64> = self
-            .nodes
-            .iter()
-            .filter_map(|n: &P2PNode| {
-                (n.params.layer_range == layer && n != node)
-                    .then_some((-(n.price / n.params.computational_cost as f64)).exp())
-            })
-            .collect();
+        let prob = P2PNetwork::market_share(self, node, node.price);
 
-        let sum: f64 = nodes_in_layer.iter().sum();
-
-        iter_price(cur_price, cost, sum)
+        cur_price + price_gradient(cur_price, prob, cost)
     }
 
     /// Creates a new P2PNetwork from a list of nodes, automatically determining
@@ -519,7 +527,11 @@ impl P2PNetwork {
     /// # Returns
     ///
     /// New contract in network
-    pub fn create_contract(&self, owner: usize, nodes: Vec<&P2PNode>) -> Result<Contract, String> {
+    pub fn create_contract(
+        &self,
+        owner: &P2PNode,
+        nodes: Vec<&P2PNode>,
+    ) -> Result<Contract, String> {
         let mut sub_contracts = VecDeque::new();
 
         let start_node = P2PNetwork::start_nodes(self);
@@ -543,13 +555,13 @@ impl P2PNetwork {
             };
 
             let source_node = if source_idx == usize::MAX {
-                P2PNetwork::find_node_by_id(self, owner).expect("owner not in network")
+                P2PNetwork::find_node_by_id(self, owner.id).expect("owner not in network")
             } else {
                 &nodes[source_idx]
             };
             let owner_node = &nodes[owner_idx];
             let dest_node = if dest_idx == usize::MAX {
-                P2PNetwork::find_node_by_id(self, owner).expect("owner not in network")
+                P2PNetwork::find_node_by_id(self, owner.id).expect("owner not in network")
             } else {
                 &nodes[dest_idx]
             };
@@ -566,7 +578,7 @@ impl P2PNetwork {
             sub_contracts.push_front(new_subcontract);
         }
 
-        Ok(Contract::new(sub_contracts, owner))
+        Ok(Contract::new(sub_contracts, owner.id))
     }
 
     /// Gets references to all start nodes (nodes with the minimum layer range).
@@ -740,6 +752,10 @@ impl Contract {
         }
     }
 
+    pub fn is_fulfilled(&self) -> bool {
+        self.fulfilled
+    }
+
     /// Prints the contract's state and information about its subcontracts
     ///
     /// This method outputs a formatted representation of the contract,
@@ -800,7 +816,7 @@ impl P2PNode {
         P2PNode {
             id,
             price: 1.0,
-            balance: 0.0,
+            balance: 100.0,
             params,
         }
     }
