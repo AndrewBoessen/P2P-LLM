@@ -2,13 +2,15 @@ mod backend;
 
 // import p2p network
 use backend::graph::DirectedGraph;
-use backend::p2p::{Contract, NodeParameters, P2PNetwork, P2PNode};
+use backend::p2p::{NodeParameters, P2PNetwork, P2PNode};
 
-use rand::Rng;
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha12Rng;
 use std::{thread, time};
 
 fn main() {
-    let mut rng = rand::rng();
+    //let mut rng = rand::rng();
+    let mut rng = ChaCha12Rng::seed_from_u64(42);
     let node_count = vec![2, 4, 2, 4];
     let mut node_id = 0;
 
@@ -58,7 +60,8 @@ fn main() {
         }
 
         // work on contracts
-        P2PNetwork::update_network(&mut network, 1, iter, 500);
+        let node_to_update = rng.random_range(0..network.nodes.len());
+        P2PNetwork::update_network(&mut network, 1, iter, 1000, node_to_update);
 
         // Add all new contracts at once
         network.contracts.extend(new_contracts);

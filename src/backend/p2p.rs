@@ -1,7 +1,6 @@
+use super::graph::{self, DirectedGraph};
 use std::collections::{HashMap, VecDeque};
 use std::hash::{Hash, Hasher};
-
-use super::graph::{self, DirectedGraph};
 
 fn price_gradient(old: f64, prob: f64, cost: u32) -> f64 {
     prob + (old / cost as f64) * prob * (prob - 1.0)
@@ -72,7 +71,13 @@ impl P2PNetwork {
     /// * `period` - Time in miliseconds
     /// * `iter` - The current iteration in the simulation
     /// * `layer_period` - Iteration between finding optimal layer allocation
-    pub fn update_network(&mut self, period: u32, iter: u32, layer_period: u32) {
+    pub fn update_network(
+        &mut self,
+        period: u32,
+        iter: u32,
+        layer_period: u32,
+        node_to_update: usize,
+    ) {
         // State of each nodes currently
         let mut states = vec![false; self.nodes.len()];
 
@@ -124,11 +129,10 @@ impl P2PNetwork {
             }
         }
 
-        let mut updated_layer = false;
         for node_mut in self.nodes.iter_mut() {
             node_mut.price = new_prices[node_mut.id];
 
-            if !updated_layer && iter % layer_period == 0 {
+            if node_mut.id == node_to_update && iter % layer_period == 0 {
                 // only update if different
                 if new_layers[node_mut.id] != node_mut.params.layer_range {
                     P2PNetwork::change_node_layer(
@@ -139,7 +143,6 @@ impl P2PNetwork {
                         node_mut,
                         new_layers[node_mut.id],
                     );
-                    updated_layer = true;
                 }
             }
         }
@@ -211,18 +214,23 @@ impl P2PNetwork {
     ///
     /// Layer range with most expected revenue
     pub fn find_optimal_layer(&self, node: &P2PNode) -> u8 {
+        let node_layer = node.params.layer_range;
         let nodes_avg = node.price / node.params.computational_cost as f64;
         let mut max_avg = nodes_avg;
-        let mut max_layer: u8 = node.params.layer_range;
+        let mut max_layer: u8 = node_layer;
         for layer in self.min_layer..self.max_layer {
             let avg = P2PNetwork::layer_avg(self, layer);
-            if (avg - max_avg) > 0.5 {
+            if avg > max_avg {
                 max_layer = layer;
                 max_avg = avg;
             }
         }
 
-        max_layer
+        if max_avg > nodes_avg * 1.2 {
+            max_layer
+        } else {
+            node_layer
+        }
     }
 
     /// Updates price to maximize revenue
