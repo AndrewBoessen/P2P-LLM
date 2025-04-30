@@ -9,7 +9,7 @@ fn main() {
     let mut node_params_1 = NodeParameters::new(1, 1, 1);
     let mut node_params_2 = NodeParameters::new(2, 1, 1);
     let mut node_params_3 = NodeParameters::new(3, 1, 1);
-    let mut node_params_4 = NodeParameters::new(1, 10, 1);
+    let mut node_params_4 = NodeParameters::new(1, 2, 1);
 
     NodeParameters::set_latency(&mut node_params_0, 1, 5);
     NodeParameters::set_latency(&mut node_params_0, 0, 0);
@@ -52,6 +52,10 @@ fn main() {
     for node in nodes_in_graph {
         let neighbors = DirectedGraph::neighbors(&graph, &node);
         println!("Node ID: {} Layer: {}", node.id, node.params.layer_range);
+        println!(
+            "Market Share: {}",
+            P2PNetwork::market_share(&network, node, node.price)
+        );
         for n in neighbors {
             println!("Neighbor {}", n.id);
         }

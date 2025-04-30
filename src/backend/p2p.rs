@@ -3,6 +3,13 @@ use std::hash::{Hash, Hasher};
 
 use super::graph::{self, DirectedGraph};
 
+fn iter_price(old_price: f64, a: u32, c: f64) -> f64 {
+    let ratio = (a * a) as f64 / old_price;
+    let inner = 1.0 - (old_price / a as f64) + (1.0 / c);
+
+    old_price + ratio * inner
+}
+
 /// Represents a peer-to-peer network composed of nodes with specific layer ranges
 /// and connectivity information.
 ///
@@ -95,6 +102,115 @@ impl P2PNetwork {
             .enumerate()
             .filter_map(|(index, &value)| (!value).then_some(index))
             .collect()
+    }
+
+    /// Find share of subcontracts that a node will recieve
+    /// based on the computational costs
+    ///
+    /// # Arguments
+    ///
+    /// * `node` - target node
+    /// * `price` - price that node will charge
+    ///
+    /// # Returns
+    ///
+    /// The percentage of market share the node has
+    pub fn market_share(&self, node: &P2PNode, price: f64) -> f64 {
+        let layer = node.params.layer_range;
+        let cost = node.params.computational_cost;
+
+        let price_per_ms = price / cost as f64;
+
+        let nodes_in_layer: Vec<f64> = self
+            .nodes
+            .iter()
+            .filter_map(|node: &P2PNode| {
+                (node.params.layer_range == layer)
+                    .then_some((-(node.price / node.params.computational_cost as f64)).exp())
+            })
+            .collect();
+
+        let sum: f64 = nodes_in_layer.iter().sum();
+
+        // softmax function
+        (-price_per_ms).exp() as f64 / sum as f64
+    }
+
+    /// Finds the average price per ms in a given layer
+    ///
+    /// # Arguments
+    ///
+    /// * `layer` - Layer to get average on
+    ///
+    /// # Returns
+    ///
+    /// Average price to ms ratio
+    fn layer_avg(&self, layer: u8) -> f64 {
+        let nodes_in_layer: Vec<f64> = self
+            .nodes
+            .iter()
+            .filter_map(|node: &P2PNode| {
+                (node.params.layer_range == layer)
+                    .then_some(node.price / node.params.computational_cost as f64)
+            })
+            .collect();
+
+        let sum: f64 = nodes_in_layer.iter().sum();
+
+        sum / nodes_in_layer.len() as f64
+    }
+
+    /// Find the layer with maximum expected revenue for a node
+    ///
+    /// # Arguments
+    ///
+    /// * `node` - node to optimize for
+    ///
+    /// # Returns
+    ///
+    /// Layer range with most expected revenue
+    pub fn find_optimal_layer(&self, node: &P2PNode) -> u8 {
+        let nodes_avg = node.price / node.params.computational_cost as f64;
+        let mut max_avg = nodes_avg;
+        let mut max_layer: u8 = node.params.layer_range;
+        for layer in self.min_layer..self.max_layer {
+            let avg = P2PNetwork::layer_avg(self, layer);
+            if avg > max_avg {
+                max_layer = layer;
+                max_avg = avg;
+            }
+        }
+
+        max_layer
+    }
+
+    /// Updates price to maximize revenue
+    /// uses Newton method for find maximum of epxected revenue
+    ///
+    /// # Arguments
+    ///
+    /// * 'node' - node id to update
+    ///
+    /// # Returns
+    ///
+    /// New price to use
+    pub fn update_price(&self, node: &P2PNode) -> f64 {
+        let cur_price = node.price;
+        let layer = node.params.layer_range;
+        let cost = node.params.computational_cost;
+
+        let nodes_in_layer: Vec<f64> = self
+            .nodes
+            .iter()
+            .filter_map(|n: &P2PNode| {
+                (n.params.layer_range == layer && n != node)
+                    .then_some((-(n.price / n.params.computational_cost as f64)).exp())
+            })
+            .collect();
+
+        let sum: f64 = nodes_in_layer.iter().sum();
+
+        iter_price(cur_price, cost, sum)
     }
 
     /// Creates a new P2PNetwork from a list of nodes, automatically determining
@@ -238,7 +354,7 @@ impl P2PNetwork {
         graph: &DirectedGraph<&P2PNode>,
         order: &Vec<&P2PNode>,
     ) -> Result<Vec<&P2PNode>, String> {
-        let mut min_distance = u32::MAX;
+        let mut min_distance = f64::INFINITY;
         let mut shortest_path: Option<Vec<&P2PNode>> = None;
         for start_node in P2PNetwork::start_nodes(self) {
             for end_node in P2PNetwork::end_nodes(self) {
@@ -246,15 +362,17 @@ impl P2PNetwork {
                 let end_id = end_node.id;
 
                 let distance_to_start = NodeParameters::get_latency(&node.params, start_id)
-                    .expect("latency to start not defined");
+                    .expect("latency to start not defined")
+                    .clone();
                 let distance_to_end = NodeParameters::get_latency(&end_node.params, node.id)
-                    .expect("latency from end not defined");
+                    .expect("latency from end not defined")
+                    .clone();
 
                 let (path, distance) =
                     P2PNetwork::optimal_path(self, graph, order, start_id, end_id)
                         .expect("path not found");
 
-                let total_distance = distance + distance_to_start + distance_to_end;
+                let total_distance = distance + distance_to_start as f64 + distance_to_end as f64;
 
                 if total_distance < min_distance {
                     min_distance = total_distance;
@@ -284,21 +402,21 @@ impl P2PNetwork {
         order: &Vec<&P2PNode>,
         start: usize,
         end: usize,
-    ) -> Result<(Vec<&P2PNode>, u32), String> {
+    ) -> Result<(Vec<&P2PNode>, f64), String> {
         // Initialize distance and predecessor arrays
         let node_count = order.len();
-        let mut distances = vec![u32::MAX; node_count]; // Distance from start to each node
+        let mut distances = vec![f64::INFINITY; node_count]; // Distance from start to each node
         let mut predecessors = vec![usize::MAX; node_count]; // Previous node in optimal path
 
         // Set distance from start node to itself as zero
-        distances[start] = 0;
+        distances[start] = 0.0;
 
         // Process nodes in topological order
         for current_node in order.iter() {
             let current_id = current_node.id;
 
             // Skip nodes that haven't been reached yet
-            if distances[current_id] == u32::MAX {
+            if distances[current_id] == f64::INFINITY {
                 continue;
             }
 
@@ -323,18 +441,19 @@ impl P2PNetwork {
                 let processing_time = neighbor.params.computational_cost;
                 let cost = neighbor.price;
 
-                let total_time = edge_latency + queue_time + processing_time + cost;
+                let price_per_ms =
+                    cost as f64 / (edge_latency + queue_time + processing_time) as f64;
 
                 // If we found a better path to the neighbor, update it
-                if distances[neighbor_id] > distances[current_id].saturating_add(total_time) {
-                    distances[neighbor_id] = distances[current_id].saturating_add(total_time);
+                if distances[neighbor_id] > distances[current_id] + price_per_ms {
+                    distances[neighbor_id] = distances[current_id] + price_per_ms;
                     predecessors[neighbor_id] = current_id;
                 }
             }
         }
 
         // Check if we found a path to the destination
-        if distances[end] == u32::MAX {
+        if distances[end] == f64::INFINITY {
             return Err(format!("No path found from node {} to node {}", start, end));
         }
 
@@ -505,7 +624,7 @@ impl P2PNetwork {
 ///
 /// A `SubContract` defines a relationship between a source and destination entity
 /// with a time constraint for completion.
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct SubContract {
     /// Identifier for the source entity
     pub source_id: usize,
@@ -520,7 +639,7 @@ pub struct SubContract {
     pub time_left: u32,
 
     /// Price to fulfill contract
-    pub price: u32,
+    pub price: f64,
 }
 
 impl SubContract {
@@ -540,7 +659,7 @@ impl SubContract {
         owner_id: usize,
         dest_id: usize,
         time_left: u32,
-        price: u32,
+        price: f64,
     ) -> Self {
         SubContract {
             source_id,
@@ -570,6 +689,7 @@ impl SubContract {
         }
     }
 }
+impl Eq for SubContract {}
 
 /// Represents a multi-layered contract on a blockchain
 ///
@@ -651,16 +771,16 @@ impl Contract {
 
         println!(
             "\nTotal Contract Value: {} tokens",
-            self.layers.iter().map(|sc| sc.price).sum::<u32>()
+            self.layers.iter().map(|sc| sc.price).sum::<f64>()
         );
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct P2PNode {
     pub id: usize,
-    pub price: u32,
-    pub balance: u32,
+    pub price: f64,
+    pub balance: f64,
     pub params: NodeParameters,
 }
 
@@ -679,8 +799,8 @@ impl P2PNode {
     pub fn new(id: usize, params: NodeParameters) -> Self {
         P2PNode {
             id,
-            price: 0,
-            balance: 0,
+            price: 1.0,
+            balance: 0.0,
             params,
         }
     }
@@ -696,6 +816,7 @@ impl Hash for P2PNode {
         self.id.hash(state);
     }
 }
+impl Eq for P2PNode {}
 
 // Represents the parameters for a node in a distributed system.
 ///
