@@ -764,7 +764,7 @@ impl Contract {
                 println!("    Source ID: {}", subcontract.source_id);
                 println!("    Owner ID: {}", subcontract.owner_id);
                 println!("    Destination ID: {}", subcontract.dest_id);
-                println!("    Time Left: {} seconds", subcontract.time_left);
+                println!("    Time Left: {} ms", subcontract.time_left);
                 println!("    Price: {} tokens", subcontract.price);
             }
         }
