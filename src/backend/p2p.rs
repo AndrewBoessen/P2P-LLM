@@ -70,7 +70,9 @@ impl P2PNetwork {
     /// # Arguments
     ///
     /// * `period` - Time in miliseconds
-    pub fn update_network(&mut self, period: u32) {
+    /// * `iter` - The current iteration in the simulation
+    /// * `layer_period` - Iteration between finding optimal layer allocation
+    pub fn update_network(&mut self, period: u32, iter: u32, layer_period: u32) {
         // State of each nodes currently
         let mut states = vec![false; self.nodes.len()];
 
@@ -112,13 +114,34 @@ impl P2PNetwork {
 
         // udpate prices that node charge
         let mut new_prices = vec![0.0; self.nodes.len()];
+        let mut new_layers = vec![0u8; self.nodes.len()];
         for node in self.nodes.iter() {
             let new_price = P2PNetwork::update_price(self, node);
             new_prices[node.id] = new_price;
+
+            if iter % layer_period == 0 {
+                new_layers[node.id] = P2PNetwork::find_optimal_layer(self, node);
+            }
         }
 
+        let mut updated_layer = false;
         for node_mut in self.nodes.iter_mut() {
             node_mut.price = new_prices[node_mut.id];
+
+            if !updated_layer && iter % layer_period == 0 {
+                // only update if different
+                if new_layers[node_mut.id] != node_mut.params.layer_range {
+                    P2PNetwork::change_node_layer(
+                        &mut self.start_node_ids,
+                        &mut self.end_node_ids,
+                        self.min_layer,
+                        self.max_layer,
+                        node_mut,
+                        new_layers[node_mut.id],
+                    );
+                    updated_layer = true;
+                }
+            }
         }
     }
 
@@ -193,7 +216,7 @@ impl P2PNetwork {
         let mut max_layer: u8 = node.params.layer_range;
         for layer in self.min_layer..self.max_layer {
             let avg = P2PNetwork::layer_avg(self, layer);
-            if avg > max_avg {
+            if (avg - max_avg) > 0.5 {
                 max_layer = layer;
                 max_avg = avg;
             }
@@ -301,23 +324,30 @@ impl P2PNetwork {
     //
     // * `node` - The node to change in the network
     // * `new_layer` - The new layer range to set
-    pub fn change_node_layer(&mut self, node: &mut P2PNode, new_layer: u8) {
+    fn change_node_layer(
+        start_node_ids: &mut Vec<usize>,
+        end_node_ids: &mut Vec<usize>,
+        min_layer: u8,
+        max_layer: u8,
+        node: &mut P2PNode,
+        new_layer: u8,
+    ) {
         let node_id = node.id;
         let current_layer = node.params.layer_range;
         node.params.layer_range = new_layer;
 
         // Remove node if previously was start or end
-        if current_layer == self.min_layer {
-            self.start_node_ids.retain(|id| *id != node_id);
-        } else if current_layer == self.max_layer {
-            self.end_node_ids.retain(|id| *id != node_id);
+        if current_layer == min_layer {
+            start_node_ids.retain(|id| *id != node_id);
+        } else if current_layer == max_layer {
+            end_node_ids.retain(|id| *id != node_id);
         }
 
         // Add to aprropriate list if new range is start or end
-        if new_layer == self.min_layer {
-            self.start_node_ids.push(node_id);
-        } else if new_layer == self.max_layer {
-            self.end_node_ids.push(node_id);
+        if new_layer == min_layer {
+            start_node_ids.push(node_id);
+        } else if new_layer == max_layer {
+            end_node_ids.push(node_id);
         }
     }
 

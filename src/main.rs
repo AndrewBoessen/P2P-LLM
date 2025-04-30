@@ -5,6 +5,8 @@ use backend::graph::DirectedGraph;
 use backend::p2p::{Contract, NodeParameters, P2PNetwork, P2PNode};
 
 use rand::Rng;
+use std::{thread, time};
+
 fn main() {
     let mut rng = rand::rng();
     let node_count = vec![2, 4, 2, 4];
@@ -31,6 +33,7 @@ fn main() {
 
     let mut network = P2PNetwork::from_nodes(nodes);
 
+    let mut iter = 0;
     loop {
         // build graph
         let graph = P2PNetwork::make_graph(&network);
@@ -38,11 +41,7 @@ fn main() {
             .expect("network has a cycle, graph could not be built");
 
         for node in order.iter() {
-            println!(
-                "ID: {} Rate: {}",
-                node.id,
-                node.price / node.params.computational_cost as f64
-            );
+            println!("{}", node.price / node.params.computational_cost as f64);
         }
 
         let nodes_to_process = P2PNetwork::nodes_without_contracts(&network);
@@ -59,9 +58,13 @@ fn main() {
         }
 
         // work on contracts
-        P2PNetwork::update_network(&mut network, 1);
+        P2PNetwork::update_network(&mut network, 1, iter, 500);
 
         // Add all new contracts at once
         network.contracts.extend(new_contracts);
+
+        iter += 1;
+
+        thread::sleep(time::Duration::from_millis(10));
     }
 }
