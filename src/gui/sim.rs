@@ -409,6 +409,12 @@ impl App {
             }
         }
 
+        // Split the area for text stats and bar chart
+        let stats_chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+            .split(area);
+
         // Create a paragraph with statistics
         let stats_text = vec![
             Line::from(vec![
@@ -437,7 +443,7 @@ impl App {
         ];
 
         let mut all_stats = stats_text;
-        for (layer, (avg_price, avg_balance, count)) in layer_stats {
+        for (layer, (avg_price, avg_balance, count)) in &layer_stats {
             all_stats.push(Line::from(vec![
                 Span::raw(format!("Layer {}: ", layer)),
                 Span::styled(
@@ -463,6 +469,74 @@ impl App {
                 .borders(Borders::ALL),
         );
 
-        f.render_widget(stats_widget, area);
+        f.render_widget(stats_widget, stats_chunks[0]);
+
+        // Render bar chart showing node count by layer
+        self.render_layer_bar_chart(f, stats_chunks[1], &layer_stats);
+    }
+
+    fn render_layer_bar_chart<B: Backend>(
+        &self,
+        f: &mut Frame<B>,
+        area: Rect,
+        layer_stats: &[(u8, (f64, f64, usize))],
+    ) {
+        // Find the maximum count for scaling
+        let max_count = layer_stats
+            .iter()
+            .map(|(_, (_, _, count))| *count)
+            .max()
+            .unwrap_or(1);
+
+        // Calculate the width available for each bar
+        let bar_area_width = area.width as usize - 4; // Account for borders and some padding
+        let bar_width = if layer_stats.len() > 0 {
+            bar_area_width / layer_stats.len()
+        } else {
+            1
+        };
+
+        // Create a block for the bar chart
+        let block = Block::default()
+            .title("Nodes Per Layer")
+            .borders(Borders::ALL);
+        let inner_area = block.inner(area);
+
+        f.render_widget(block, area);
+
+        // Render each bar
+        for (i, (layer, (_, _, count))) in layer_stats.iter().enumerate() {
+            let bar_height = ((count * (inner_area.height as usize - 1)) / max_count) as u16;
+            let bar_height = bar_height.max(1); // Ensure at least 1 height
+
+            let bar_x = inner_area.left() + (i * bar_width) as u16;
+            let bar_y = inner_area.bottom() - bar_height;
+
+            let bar_area = Rect::new(bar_x, bar_y, bar_width as u16, bar_height);
+
+            // Render bar with color based on layer
+            let color = match layer % 6 {
+                0 => Color::Red,
+                1 => Color::Green,
+                2 => Color::Yellow,
+                3 => Color::Blue,
+                4 => Color::Magenta,
+                _ => Color::Cyan,
+            };
+
+            let bar = Block::default()
+                .borders(Borders::NONE)
+                .style(Style::default().bg(color));
+
+            f.render_widget(bar, bar_area);
+
+            // Render layer number label
+            if bar_width >= 3 {
+                let label =
+                    Paragraph::new(layer.to_string()).alignment(ratatui::layout::Alignment::Center);
+                let label_area = Rect::new(bar_x, inner_area.bottom() - 1, bar_width as u16, 1);
+                f.render_widget(label, label_area);
+            }
+        }
     }
 }
