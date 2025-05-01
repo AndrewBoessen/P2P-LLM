@@ -800,6 +800,14 @@ impl Contract {
         self.fulfilled
     }
 
+    pub fn get_owner(&self) -> usize {
+        self.owner
+    }
+
+    pub fn num_subcontracts(&self) -> usize {
+        self.layers.len()
+    }
+
     /// Prints the contract's state and information about its subcontracts
     ///
     /// This method outputs a formatted representation of the contract,

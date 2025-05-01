@@ -1,76 +1,54 @@
 mod backend;
+mod gui;
 
 // import p2p network
-use backend::graph::DirectedGraph;
 use backend::p2p::{NodeParameters, P2PNetwork, P2PNode};
+use gui::sim::App;
 
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha12Rng;
-use std::{thread, time};
+use std::{io, process};
 
-fn main() {
-    //let mut rng = rand::rng();
+fn main() -> io::Result<()> {
+    // Set up random number generator with deterministic seed
     let mut rng = ChaCha12Rng::seed_from_u64(42);
+
+    // Define network structure with nodes per layer
     let node_count = vec![2, 4, 2, 4];
     let mut node_id = 0;
-
     let mut nodes: Vec<P2PNode> = Vec::new();
 
+    // Create nodes for each layer
     for (layer, num) in node_count.iter().enumerate() {
-        for _ in 0..num.clone() {
-            let new_params = NodeParameters::new(layer as u8, rng.random_range(1..50), 1);
+        for _ in 0..*num {
+            // Random computational cost between 1-50
+            let comp_cost = rng.gen_range(1..50);
+            let new_params = NodeParameters::new(layer as u8, comp_cost, 1);
             let new_node = P2PNode::new(node_id, new_params);
             nodes.push(new_node);
             node_id += 1;
         }
     }
 
+    // Set up random latencies between nodes
     let total_nodes = nodes.len();
     for node in nodes.iter_mut() {
         for dest_id in 0..total_nodes {
-            let params = &mut node.params;
-            NodeParameters::set_latency(params, dest_id, rng.random_range(1..10));
+            let latency = rng.gen_range(1..10);
+            node.params.set_latency(dest_id, latency);
         }
     }
 
-    let mut network = P2PNetwork::from_nodes(nodes);
+    // Create the P2P network from nodes
+    let network = P2PNetwork::from_nodes(nodes);
 
-    let mut iter = 0;
-    loop {
-        // build graph
-        let graph = P2PNetwork::make_graph(&network);
-        let order = DirectedGraph::topological_sort(&graph)
-            .expect("network has a cycle, graph could not be built");
-
-        for node in order.iter() {
-            println!(
-                "Layer: {} Node: {} Price: {} Cost: {}",
-                node.params.layer_range, node.id, node.price, node.params.computational_cost
-            );
-        }
-
-        let nodes_to_process = P2PNetwork::nodes_without_contracts(&network);
-
-        // Create new contracts
-        let mut new_contracts = Vec::new();
-        for node_info in nodes_to_process {
-            if let Ok(path) = P2PNetwork::fastest_path_for_node(&network, node_info, &graph, &order)
-            {
-                if let Ok(contract) = P2PNetwork::create_contract(&network, node_info, path) {
-                    new_contracts.push(contract);
-                }
-            }
-        }
-
-        // work on contracts
-        let node_to_update = rng.random_range(0..network.nodes.len());
-        P2PNetwork::update_network(&mut network, 1, iter, 1000, node_to_update);
-
-        // Add all new contracts at once
-        network.contracts.extend(new_contracts);
-
-        iter += 1;
-
-        //thread::sleep(time::Duration::from_millis(10));
+    // Initialize and run the TUI application
+    let mut app = App::new(network);
+    if let Err(err) = app.run_simulation() {
+        eprintln!("Application error: {}", err);
+        process::exit(1);
     }
+
+    Ok(())
 }
+
