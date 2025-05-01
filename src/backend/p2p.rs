@@ -2,8 +2,8 @@ use super::graph::{self, DirectedGraph};
 use std::collections::{HashMap, VecDeque};
 use std::hash::{Hash, Hasher};
 
-fn price_gradient(old: f64, prob: f64, cost: u32) -> f64 {
-    prob + (old / cost as f64) * prob * (prob - 1.0)
+fn price_gradient(old: f64, prob: f64) -> f64 {
+    prob + old * 0.5 * prob * (prob - 1.0)
 }
 /// Represents a peer-to-peer network composed of nodes with specific layer ranges
 /// and connectivity information.
@@ -163,24 +163,26 @@ impl P2PNetwork {
         let layer = node.params.layer_range;
         let cost = node.params.computational_cost;
 
-        let price_per_ms = price / cost as f64;
+        let cost = 0.5 * price + 0.5 * (cost as f64 / 50.0);
 
         let nodes_in_layer: Vec<f64> = self
             .nodes
             .iter()
             .filter_map(|node: &P2PNode| {
-                (node.params.layer_range == layer)
-                    .then_some((-(node.price / node.params.computational_cost as f64)).exp())
+                (node.params.layer_range == layer).then_some(
+                    (-(0.5 * node.price + 0.5 * (node.params.computational_cost as f64 / 50.0)))
+                        .exp(),
+                )
             })
             .collect();
 
         let sum: f64 = nodes_in_layer.iter().sum();
 
         // softmax function
-        (-price_per_ms).exp() as f64 / sum as f64
+        (-cost).exp() as f64 / sum as f64
     }
 
-    /// Finds the average price per ms in a given layer
+    /// Finds the volume of computation in the layer
     ///
     /// # Arguments
     ///
@@ -188,23 +190,21 @@ impl P2PNetwork {
     ///
     /// # Returns
     ///
-    /// Average price to ms ratio
-    fn layer_avg(&self, layer: u8) -> f64 {
+    /// Sum of total computation cost in layer
+    fn layer_volume(&self, layer: u8) -> f64 {
         let nodes_in_layer: Vec<f64> = self
             .nodes
             .iter()
             .filter_map(|node: &P2PNode| {
                 (node.params.layer_range == layer)
-                    .then_some(node.price / node.params.computational_cost as f64)
+                    .then_some((-(node.params.computational_cost as f64 / 50.0)).exp())
             })
             .collect();
 
-        let sum: f64 = nodes_in_layer.iter().sum();
-
-        sum / nodes_in_layer.len() as f64
+        nodes_in_layer.iter().sum()
     }
 
-    /// Find the layer with maximum expected revenue for a node
+    /// Find the layer with optimal balance between node count and computational cost
     ///
     /// # Arguments
     ///
@@ -212,25 +212,32 @@ impl P2PNetwork {
     ///
     /// # Returns
     ///
-    /// Layer range with most expected revenue
+    /// Layer range that optimizes balance between node distribution and computational cost
     pub fn find_optimal_layer(&self, node: &P2PNode) -> u8 {
         let node_layer = node.params.layer_range;
-        let nodes_avg = node.price / node.params.computational_cost as f64;
-        let mut max_avg = nodes_avg;
-        let mut max_layer: u8 = node_layer;
-        for layer in self.min_layer..self.max_layer {
-            let avg = P2PNetwork::layer_avg(self, layer);
-            if avg > max_avg {
-                max_layer = layer;
-                max_avg = avg;
+        let node_comp = (-(node.params.computational_cost as f64 / 50.0)).exp();
+
+        // Track the best layer and its score
+        let mut best_layer = node_layer;
+        let mut best_score = f64::MIN;
+
+        // Find layer that balances both node distribution and computational cost similarity
+        for layer in self.min_layer..=self.max_layer {
+            let share: f64;
+            let curr_vol = P2PNetwork::layer_volume(self, layer);
+            if layer == node_layer {
+                share = node_comp / (curr_vol - node_comp);
+            } else {
+                share = node_comp / curr_vol;
+            }
+            if share > best_score {
+                best_score = share;
+                best_layer = layer;
             }
         }
 
-        if max_avg > nodes_avg * 1.2 {
-            max_layer
-        } else {
-            node_layer
-        }
+        // Return the layer with the best balance score
+        best_layer
     }
 
     /// Updates price to maximize revenue
@@ -245,11 +252,10 @@ impl P2PNetwork {
     /// New price to use
     pub fn update_price(&self, node: &P2PNode) -> f64 {
         let cur_price = node.price;
-        let cost = node.params.computational_cost;
 
         let prob = P2PNetwork::market_share(self, node, node.price);
 
-        cur_price + price_gradient(cur_price, prob, cost)
+        cur_price + price_gradient(cur_price, prob)
     }
 
     /// Creates a new P2PNetwork from a list of nodes, automatically determining
@@ -487,8 +493,8 @@ impl P2PNetwork {
                 let processing_time = neighbor.params.computational_cost;
                 let cost = neighbor.price;
 
-                let price_per_ms =
-                    cost as f64 / (edge_latency + queue_time + processing_time) as f64;
+                let price_per_ms = 0.5 * cost
+                    + 0.5 * ((edge_latency + queue_time + processing_time) as f64 / 50.0);
 
                 // If we found a better path to the neighbor, update it
                 if distances[neighbor_id] > distances[current_id] + price_per_ms {

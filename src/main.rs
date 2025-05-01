@@ -43,7 +43,10 @@ fn main() {
             .expect("network has a cycle, graph could not be built");
 
         for node in order.iter() {
-            println!("{}", node.price / node.params.computational_cost as f64);
+            println!(
+                "Layer: {} Node: {} Price: {} Cost: {}",
+                node.params.layer_range, node.id, node.price, node.params.computational_cost
+            );
         }
 
         let nodes_to_process = P2PNetwork::nodes_without_contracts(&network);
@@ -68,6 +71,6 @@ fn main() {
 
         iter += 1;
 
-        thread::sleep(time::Duration::from_millis(10));
+        //thread::sleep(time::Duration::from_millis(10));
     }
 }
