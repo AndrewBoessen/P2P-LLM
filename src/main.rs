@@ -14,7 +14,7 @@ fn main() -> io::Result<()> {
     let mut rng = ChaCha12Rng::seed_from_u64(42);
 
     // Define network structure with nodes per layer
-    let node_count = vec![2, 4, 2, 4];
+    let node_count = vec![10, 4, 10, 4];
     let mut node_id = 0;
     let mut nodes: Vec<P2PNode> = Vec::new();
 

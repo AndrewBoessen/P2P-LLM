@@ -420,11 +420,20 @@ impl P2PNetwork {
                     .expect("latency from end not defined")
                     .clone();
 
+                let start_cost = P2PNetwork::time_in_queue(self, start_id)
+                    + start_node.params.computational_cost;
+                let end_cost =
+                    P2PNetwork::time_in_queue(self, end_id) + end_node.params.computational_cost;
+
                 let (path, distance) =
                     P2PNetwork::optimal_path(self, graph, order, start_id, end_id)
                         .expect("path not found");
 
-                let total_distance = distance + distance_to_start as f64 + distance_to_end as f64;
+                let total_distance = distance
+                    + distance_to_start as f64
+                    + distance_to_end as f64
+                    + start_cost as f64
+                    + end_cost as f64;
 
                 if total_distance < min_distance {
                     min_distance = total_distance;
