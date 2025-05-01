@@ -33,8 +33,8 @@ impl SimulationSpeed {
     fn as_millis(&self) -> Option<u64> {
         match self {
             SimulationSpeed::Paused => None,
-            SimulationSpeed::Slow => Some(500),
-            SimulationSpeed::Normal => Some(100),
+            SimulationSpeed::Slow => Some(100),
+            SimulationSpeed::Normal => Some(50),
             SimulationSpeed::Fast => Some(10),
         }
     }
@@ -81,6 +81,7 @@ impl App {
         let running_clone = Arc::clone(&self.running);
         let simulation_handle = thread::spawn(move || {
             let mut iter = 0;
+            let mut node_to_update = 0;
             while running_clone.load(Ordering::SeqCst) {
                 // Get current speed
                 {
@@ -106,21 +107,24 @@ impl App {
                     }
 
                     // Update network state
-                    let node_to_update = iter as usize % network.nodes.len();
-                    P2PNetwork::update_network(&mut network, 1, iter, 1000, node_to_update);
+                    if iter % 10 == 0 {
+                        node_to_update += 1;
+                        node_to_update = node_to_update % network.nodes.len();
+                    }
+                    P2PNetwork::update_network(&mut network, 1, iter, 10, node_to_update);
 
                     // Add all new contracts at once
                     network.contracts.extend(new_contracts);
                 }
 
                 iter += 1;
-                thread::sleep(Duration::from_millis(100));
+                thread::sleep(Duration::from_millis(200));
             }
         });
 
         // Main rendering loop
         let mut last_tick = Instant::now();
-        let tick_rate = Duration::from_millis(100);
+        let tick_rate = Duration::from_millis(200);
 
         loop {
             terminal.draw(|f| self.ui(f))?;
