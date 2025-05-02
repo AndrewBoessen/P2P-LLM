@@ -118,13 +118,13 @@ impl App {
                 }
 
                 iter += 1;
-                thread::sleep(Duration::from_millis(200));
+                thread::sleep(Duration::from_millis(100));
             }
         });
 
         // Main rendering loop
         let mut last_tick = Instant::now();
-        let tick_rate = Duration::from_millis(200);
+        let tick_rate = Duration::from_millis(100);
 
         loop {
             terminal.draw(|f| self.ui(f))?;
