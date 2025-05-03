@@ -116,8 +116,13 @@ A peer-to-peer network can be built to share any type of resource. In the case o
 For the case of LLM inference, peers will need to ba able to share bandwidth, data, and computational power.
 
 A peer-to-peer network is defined as having $n$ nodes in the network. There is an LLM model with $m$ total layers which will be devided between nodes.
-Each node $N$ in the network is a tuple $N(\ell, l, c, p)$ where $\ell _i = (x,y) : x,y \in [0,m); y > x$ is the range of layers the node is able to serve, $l_{ij}$ is the network latency between nodes $i$ and $j$,
-$c_i$ is the computational cost of the node, measured in miliseconds, and $p_i$ is the price the nodes charges for its compute.
+Each node $N$ in the network is a tuple $N(\ell, l, c, p)$ where
+\begin{enumerate}
+  \item $\ell _i = (x,y) : x,y \in [0,m); y > x$ is the range of layers the node is able to serve
+  \item $l_{ij} \in \mathbb{R}$ is the network latency between nodes $i$ and $j$,
+  \item $c_i \in \mathbb{R}$ is the computational cost of the node, measured in miliseconds
+  \item $p_i \in \mathbb{R}$ is the price the nodes charges for its compute.
+\end{enumerate}
 
 \subsection{Path Finding}
 
@@ -191,7 +196,12 @@ with a computational complexity of $O(|V| + |E|)$.
 
 The optimal path is well defined when weights for nodes are clearly defined, but there is not a clear way to define
 weights for nodes in this case. In the P2P-LLM network there are two competing criterea that define the weight of node: computational cost and price.
-The algorithm described above uses a single objective, while the optimal path in the network is a multi-objective optimization problem.
+The algorithm described above uses a single objective (SO), while the optimal path in the network is a multi-objective (MO) optimization problem.
+There are several way to find optimal solutions to MO optimization problems \citep{1599245}. The simplest way is to convert it to a SO optimization problem, and
+since the shortest path algorithm is designed for SO objective, it is the most practical solution for this task. In order to reframe the problem as a single objective,
+a weighed aggreagte of the objetives is used. In the case for the peer-to-peer network, the SO is a weighed sum of computational cost $c_i$ and price $p_i$.
+The objective, or weight of a node, $w_i$ is defined as.
+$$w_i = \alpha c_i + 1 - \alpha p_i$$
 
 \begin{tikzpicture}
 	\begin{axis}[
