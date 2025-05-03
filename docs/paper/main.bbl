@@ -1,4 +1,4 @@
-\begin{thebibliography}{4}
+\begin{thebibliography}{5}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -22,6 +22,12 @@ Alexander Borzunov, Dmitry Baranchuk, Tim Dettmers, Max Ryabinin, Younes Belkada
 Arnaud Durand, Mikael Gasparyan, Thomas Rouvinez, Imad~Rafic Aad, Torsten Braun, and Tuan~Anh Trinh.
 \newblock Bitworker, a decentralized distributed computing system based on bittorrent, May 2015.
 \newblock URL \url{https://boris-portal.unibe.ch/handle/20.500.12422/134610}.
+
+\bibitem[Ngatchou et~al.(2005)Ngatchou, Zarei, and El-Sharkawi]{1599245}
+P.~Ngatchou, A.~Zarei, and A.~El-Sharkawi.
+\newblock Pareto multi objective optimization.
+\newblock In \emph{Proceedings of the 13th International Conference on, Intelligent Systems Application to Power Systems}, pages 84--91, 2005.
+\newblock \doi{10.1109/ISAP.2005.1599245}.
 
 \bibitem[Steltner et~al.(2021)Steltner, Papa, Eggenstein, Allen, Dergachev, Prix, Machenschalk, Walsh, Zhu, Behnke, and Kwang]{Steltner_2021}
 B.~Steltner, M.~A. Papa, H.-B. Eggenstein, B.~Allen, V.~Dergachev, R.~Prix, B.~Machenschalk, S.~Walsh, S.~J. Zhu, O.~Behnke, and S.~Kwang.
