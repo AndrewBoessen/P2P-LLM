@@ -1,4 +1,4 @@
-\begin{thebibliography}{3}
+\begin{thebibliography}{4}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -17,6 +17,11 @@ David~P. Anderson, Jeff Cobb, Eric Korpela, Matt Lebofsky, and Dan Werthimer.
 Alexander Borzunov, Dmitry Baranchuk, Tim Dettmers, Max Ryabinin, Younes Belkada, Artem Chumachenko, Pavel Samygin, and Colin Raffel.
 \newblock Petals: Collaborative inference and fine-tuning of large models, 2023.
 \newblock URL \url{https://arxiv.org/abs/2209.01188}.
+
+\bibitem[Durand et~al.(2015)Durand, Gasparyan, Rouvinez, Aad, Braun, and Trinh]{Durand_Gasparyan_Rouvinez_Aad_Braun_Trinh_2015}
+Arnaud Durand, Mikael Gasparyan, Thomas Rouvinez, Imad~Rafic Aad, Torsten Braun, and Tuan~Anh Trinh.
+\newblock Bitworker, a decentralized distributed computing system based on bittorrent, May 2015.
+\newblock URL \url{https://boris-portal.unibe.ch/handle/20.500.12422/134610}.
 
 \bibitem[Steltner et~al.(2021)Steltner, Papa, Eggenstein, Allen, Dergachev, Prix, Machenschalk, Walsh, Zhu, Behnke, and Kwang]{Steltner_2021}
 B.~Steltner, M.~A. Papa, H.-B. Eggenstein, B.~Allen, V.~Dergachev, R.~Prix, B.~Machenschalk, S.~Walsh, S.~J. Zhu, O.~Behnke, and S.~Kwang.

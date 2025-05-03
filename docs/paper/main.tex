@@ -33,6 +33,8 @@
 \usepackage{algorithm}
 \usepackage{algorithmicx}
 \usepackage{algpseudocode}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
 
 
 % Definitions of handy macros can go here
@@ -96,8 +98,9 @@ However, the use of idle compute power still has untapped applications, and the 
 \subsection{P2P Networks}
 
 LLM inference is a perfect candidate for P2P network because it has technical requirments that prohibit most personal computers from being able to run
-large models with billions of parameters, and it can easilly be split into small chunks that can be run on several computers at the same time. The most notable research
-being done in this area is Petals \citep{borzunov2023petalscollaborativeinferencefinetuning} which is a BitTorrent like peer-to-peer network for LLM inference and finetuning.
+large models with billions of parameters, and it can easilly be split into small chunks that can be run on several computers at the same time. BitWorker \citep{Durand_Gasparyan_Rouvinez_Aad_Braun_Trinh_2015} is a protocol designed to compute any parallel computing task across a peer-to-peer network.
+Although it is possible to apply LLM inference to this protocol, BitWorker is designed for general tasks and would not able to efficiently scale to the demands of many users.
+The most notable research being done in this area is Petals \citep{borzunov2023petalscollaborativeinferencefinetuning} which is a BitTorrent like peer-to-peer network for LLM inference and finetuning.
 Petals creates a network with client and servers. Clients send requests that will be processed by the servers on the network. The model is split into multiple sequential blocks of layers, and each server
 in the network is capable of serving one or multiple of these blocks. In order to run an inference step, a client will find a optimal path of servers
 in the network thats forms the complete model and minimizes time required. In my work I explore a similar approach with a network of distributed computers that serve a specific part of the whole LLM,
@@ -111,6 +114,18 @@ Each devices can send and recieve data which eliminates the need for a centraliz
 is that recources are pooled and shared between peers, so the combined resources available to an individual peer is greater than that nodes own resources.
 A peer-to-peer network can be built to share any type of resource. In the case of BitTorrent, bandwidth and files are shared between peers.
 For the case of LLM inference, peers will need to ba able to share bandwidth, data, and computational power.
+
+A peer-to-peer network is defined as having $n$ nodes in the network. There is an LLM model with $m$ total layers which will be devided between nodes.
+Each node $N$ in the network is a tuple $N(\ell, l, c, p)$ where $\ell _i = (x,y) : x,y \in [0,m); y > x$ is the range of layers the node is able to serve, $l_{ij}$ is the network latency between nodes $i$ and $j$,
+$c_i$ is the computational cost of the node, measured in miliseconds, and $p_i$ is the price the nodes charges for its compute.
+
+\subsection{Path Finding}
+
+In order to use the network to run the LLM, a node must first find a sequence of nodes in the graph that form a complete model.
+Because the LLM layers must be computed sequentially, the node must find a path through the network that ideally will compute
+the LLM in the least amount of time possible and at the lowest price. This problem can be solved by viewing the network as a directed graph where weight correspond
+to the computational cost of nodes. The edges of the graph correspond the compatability between the layers that each node in serving.
+Specifically, every node is connected to all nodes that are serving the consecutive layer of the model. A vizualization of this directed graph is shown in Figure \ref{fig:layered_graph}.
 
 \begin{figure}
 	\centering
@@ -163,7 +178,65 @@ For the case of LLM inference, peers will need to ba able to share bandwidth, da
 	\label{fig:layered_graph}
 \end{figure}
 
-\subsection{Path Finding}
+Due to this property, the P2P network graph is a directed acyclical graph (DAG). This means that there are efficient
+algorithms to find the shortest path between two nodes. The first step is to perform a topological sort on the nodes in the network.
+This is an ordering of the nodes such that all neighbors of a node come after the node in the ordering.
+For example, a topological ordering of the DAG in Figure \ref{fig:layered_graph} is $[0,1,2,3,4,5,6,7,8]$.
+The algorithm for topological sort is shown in Appendix \ref{app:topo_sort}. With the topological order, dynamic programming can be used to find the shortest path in the network.
+This algorithm will iterate over the ordering, and search all the nodes neighbors for the one with the lowest weight.
+The full algorithm is shown in Appendix \ref{app:shortest_path}. Most importantly, both the topological sort and path finding algorithm run in linear time
+with a computational complexity of $O(|V| + |E|)$.
+
+\subsection{Pareto Effeciency}
+
+The optimal path is well defined when weights for nodes are clearly defined, but there is not a clear way to define
+weights for nodes in this case. In the P2P-LLM network there are two competing criterea that define the weight of node: computational cost and price.
+The algorithm described above uses a single objective, while the optimal path in the network is a multi-objective optimization problem.
+
+\begin{tikzpicture}
+	\begin{axis}[
+			width=12cm,
+			height=10cm,
+			xlabel={Computational Cost},
+			ylabel={Price},
+			xlabel style={font=\large},
+			ylabel style={font=\large},
+			xmin=0, xmax=10,
+			ymin=0, ymax=10,
+			xtick={0,2,4,6,8,10},
+			ytick={0,2,4,6,8,10},
+			grid=both,
+			title={Pareto Frontier: Computational Cost vs. Price},
+			legend pos=north east,
+			legend style={font=\footnotesize}
+		]
+
+		% Scatter plot of solutions
+		\addplot[only marks, mark=o, mark size=3pt, blue] coordinates {
+				(2,9) (3,7.2) (4,6) (5,5) (6,4.3) (7,3.8) (8,3.5) (9,3.2)
+			};
+
+		% Pareto frontier
+		\addplot[thick, red, smooth] coordinates {
+				(2,9) (3,7.2) (4,6) (5,5) (6,4.3) (7,3.8) (8,3.5) (9,3.2)
+			};
+
+		% Sample dominated solutions
+		\addplot[only marks, mark=x, mark size=3pt, gray] coordinates {
+				(2.5,9.5) (3.5,8) (4.5,7) (5.5,6) (6.5,5.8) (7.5,5) (8.5,4.5)
+				(3,8.5) (4,7.5) (5,6.5) (6,5.5) (7,4.7) (8,4.2)
+			};
+
+		% Ideal point (non-achievable)
+		\addplot[only marks, mark=star, mark size=5pt, green!70!black] coordinates {
+				(2,2)
+			};
+
+		% Add legend
+		\legend{Pareto-optimal Solutions, Pareto Frontier, Dominated Solutions, Ideal Point};
+
+	\end{axis}
+\end{tikzpicture}
 
 \subsection{Revenue Optimization}
 
@@ -188,6 +261,7 @@ For the case of LLM inference, peers will need to ba able to share bandwidth, da
 
 \appendix
 \section{Topological Sort}
+\label{app:topo_sort}
 \begin{algorithm}
 	\caption{Topological Sort of a Directed Acyclic Graph (DAG)}
 	\begin{algorithmic}[1]
@@ -221,6 +295,7 @@ For the case of LLM inference, peers will need to ba able to share bandwidth, da
 \end{algorithm}
 
 \section{Shortest Path}
+\label{app:shortest_path}
 \begin{algorithm}
 	\caption{Shortest Path in a DAG}
 	\begin{algorithmic}[1]
