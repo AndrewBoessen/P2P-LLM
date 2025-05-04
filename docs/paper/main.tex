@@ -35,6 +35,7 @@
 \usepackage{algpseudocode}
 \usepackage{pgfplots}
 \pgfplotsset{compat=1.18}
+\usepackage[thinc]{esdiff}
 
 
 % Definitions of handy macros can go here
@@ -59,7 +60,6 @@
 \maketitle
 
 \begin{abstract}%   <- trailing '%' for backward compatibility of .sty file
-	\blindtext
 \end{abstract}
 
 \section{Introduction}
@@ -202,18 +202,11 @@ There are several way to find optimal solutions to MO optimization problems \cit
 since the shortest path algorithm is designed for SO objective, it is the most practical solution for this task. In order to reframe the problem as a single objective,
 a weighed aggreagte of the objetives is used. In the case for the peer-to-peer network, the SO is a weighed sum of computational cost $c_i$ and price $p_i$.
 The objective, or weight, of a node, $w_i$ is defined as.
-$$w_i = \alpha \cdot c_i + (1 - \alpha) \cdot p_i$$
-Howver, this assumes that the weight $\alpha$ is known a priori. In general, there are many equivilent optimal solutions in a MO optimzation problem.
-These are known and Pareto-optimal solutions. They are solutions such that there is no way to improve one objective without degrading any other objectives.
-A solution is said to be Pareto-optimal if there are no other solutions that dominate it. A solution $x_1$ dominates $x_2$ if
-\begin{enumerate}
-	\item $\forall i, f_i(x_1) \leq f_i(x_2)$
-	\item $\exists i, f_i(x_1) < f_i(x_2)$
-\end{enumerate}
-where $f_i()$ is the utility for the $i$th objective.
-The set of all Pareto-optimal solutions forms a frontier (Figure \ref{fig:Pareto-optimal}) of equivilent solutions, but there is not a clear choice on which one should be used.
-In the case of the SO weighted aggreagte used in the P2P-LLM network, the parameter $\alpha$ decides where on the Pareto frontier the optimal solution lies.
-Due to this, each node can independently decide that importance of price and computational cost in the optimal path through the network.
+
+\begin{equation}
+	w_i = \alpha \cdot p_i + (1 - \alpha) \cdot c_i
+	\label{eq:weight}
+\end{equation}
 
 \begin{figure}
 	\centering
@@ -265,7 +258,32 @@ Due to this, each node can independently decide that importance of price and com
 	\label{fig:Pareto-optimal}
 \end{figure}
 
+However, this assumes that the weight $\alpha$ is known a priori. In general, there are many equivilent optimal solutions in a MO optimzation problem.
+These are known and Pareto-optimal solutions. They are solutions such that there is no way to improve one objective without degrading any other objectives.
+A solution is said to be Pareto-optimal if there are no other solutions that dominate it. A solution $x_1$ dominates $x_2$ if
+\begin{enumerate}
+	\item $\forall i, f_i(x_1) \leq f_i(x_2)$ and
+	\item $\exists i, f_i(x_1) < f_i(x_2)$
+\end{enumerate}
+where $f_i()$ is the utility for the $i$th objective.
+
+The set of all Pareto-optimal solutions forms a frontier (Figure \ref{fig:Pareto-optimal}) of equivilent solutions, but there is not a clear choice on which one should be used.
+In the case of the SO weighted aggreagte used in the P2P-LLM network, the parameter $\alpha$ decides where on the Pareto frontier the optimal solution lies.
+Due to this, each node can independently decide that importance of price and computational cost in the optimal path through the network.
+
 \subsection{Revenue Optimization}
+
+Each peer additionally has to choose a price to charge for other peers to use their computation.
+Ideally each node will act in its self-iterest and choose the price that maximizes revenue.
+If the price is too high, peers will choose equivlent node serving the same layers,
+while if the price is too low, the total revenue will be less than ideal.
+The price they choose should reflect the current state of the network, and adapt to conditions.
+In this context, price optimization become difficult as it is a dynamic environment
+and a uniform pricing rule would not result in optimal revenue.
+In the P2P-LLM network, a peer only has to compete with other peers serving the same layers.
+This can be exploited to narrow down the complexities of this problem.
+Working with this leads to the conclusion that a nodes price should be determined
+by its own price and computational cost and the price and computational cost of all other peers serving the same layers.
 
 \begin{figure}
 	\centering
@@ -274,14 +292,14 @@ Due to this, each node can independently decide that importance of price and com
 				width=14cm,
 				height=8cm,
 				xlabel={$p_i$},
-				ylabel={Expected Revenue $R(p_i, c_i)$},
+				ylabel={Expected Revenue $R(p_i)$},
 				domain=0:12,
 				samples=200,
 				legend pos=north east,
 				grid=major,
 				thick,
 				every axis plot/.append style={very thick},
-				title={Expected Revenue Function $R(p_i, c_i)$}
+				title={Expected Revenue Function $R(p_i)$}
 			]
 
 			% Constant denominator
@@ -297,12 +315,69 @@ Due to this, each node can independently decide that importance of price and com
 
 		\end{axis}
 	\end{tikzpicture}
-	\caption{Expected Revenue}
+	\caption{Effect of Computational Cost on Expected Revenue}
 	\label{fig:exp_rev}
 \end{figure}
-\subsection{Network Equilibrium}
 
-\subsection{Strategy-Proofness}
+If we can define a revenue function based on these parameters, then the optimal price can be found by maximizing this function with respect to $p_i$.
+The revenue a node recieves for a single peer using the network would be its price multiplied by the probability of being chosen in the optimal path.
+
+\begin{equation}
+	R(p_i) = p_i \cdot \mathbb{P}(w_i)
+	\label{eq:revenue}
+\end{equation}
+
+The probability that a node is chosen is related to its weight (Equation \ref{eq:weight}).
+In order to get a distribution across all weights in the node's layer, the Boltzmann distribution \citep{boltzmann1868studien} can be used.
+This distribution give the probability that a system will be in certain state.
+
+\begin{equation}
+	\mathbb{P}(\epsilon_i) = \frac{e^{- \epsilon_i / kT}}{\sum_{j=1}^{M}e^{- \epsilon_j / kT}}
+	\label{eq:Boltzmann}
+\end{equation}
+
+where $\epsilon_i$ is the energy for state $i$, $k$ is the Boltzmann constant, and $T$ is the temperature of the system.
+For the purposes of the P2P-LLM network, $k$ and $T$ are dropped and $\epsilon_i$ is $w_i$ (Equation \ref{eq:weight}).
+Using this method gives a smooth expected revenue function, and prices will reflect how much each nodes contributes to the network.
+Specifcally, if a nodes contributes more compute power to the network, demonstrated as a lower computational cost $c_i$, the optimal
+price they will charge will be higher, and they will be rewarded with a higher expected revenue.
+A vizualization of how $c_i$ effects the expected revenue curve is shown in Figure \ref{fig:exp_rev}.
+
+Now with the expected revnue function, the optimal price can be found by finding the price that maximizes $R(p_i)$.
+Unfortunately, there is not a closed form solution to this problem, but there are methods that can be used.
+Iterative pricing mechanism \citep{ecf80b8b-07bb-374f-ab3f-2cc6a349f689} are used to find optimal prices by making iterative changes to the price until it converages at an optimal point.
+These methods work well for dynamic environment where the state of the market is contiously changing.
+For example, gradient ascent has been used for forex investing \citep{su142215328}.
+The gradient ascent algorithm is very similar to the gradient descent \citep{cauchy1847methode} algorithm commonly used in machine learning.
+The key differnce is that it seeks to maximize a function's value rather minimize it.
+Gradient ascent is used to maximize the expected revenue function, $R(p_i)$ with respect to price.
+It is defined as
+
+\begin{equation}
+	\mathbf{x}_{t+1} = \mathbf{x}_t + \eta \nabla f(\mathbf{x}_t)
+	\label{eq:grad}
+\end{equation}
+
+where $\mathbf{x}_t$ is the parameter vector at iteration $t$
+,$\mathbf{x}_{t+1}$ is the updated parameter vector,
+$\eta$ is the learning rate (step size)
+, and $\nabla f(\mathbf{x}_t)$ is the gradient of the objective function $f$ at point $\mathbf{x}_t$.
+
+Applying this to the revenue function, $R(p_i)$, we can get and update function for the price.
+The gradient of $R$ with respect to $p$ is
+$$\diffp{R}{p} = \mathbb{P}(w)(1 + \alpha p \cdot (\mathbb{P}(w) - 1))$$
+
+Using this with the gradient ascent algorithm Equation \ref{eq:grad}, the price update rule is
+
+\begin{equation}
+	p_{t+1} = p_t + \eta \diffp{R}{{p_t}}
+	\label{eq:optim_price}
+\end{equation}
+
+As all nodes continuly update their prices, they will converge on the price that gives
+maximum revenue for each node individually.
+
+\subsection{Network Equilibrium}
 
 \section{Cryptoeconomics}
 
