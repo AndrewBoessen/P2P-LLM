@@ -119,7 +119,7 @@ node maximizing expected revenue individually.
 
 Fundamentally, a peer-to-peer network is a decentralized system where each devices acts as a client and a sever.
 Each devices can send and receive data which eliminates the need for a centralized server. The central benefit of a P2P network
-is that resources are pooled and shared between peers, so the combined resources available to an individual peer is greater than that nodes own resources.
+is that resources are pooled and shared between peers, so the combined resources available to an individual peer is greater than that peer's own resources.
 A peer-to-peer network can be built to share any type of resource. In the case of BitTorrent, bandwidth and files are shared between peers.
 For the case of LLM inference, peers will need to be able to share bandwidth, data, and computational power.
 
@@ -134,11 +134,11 @@ Each node $N$ in the network is a tuple $N(\ell, l, c, p)$ where
 
 \subsection{Path Finding}
 
-In order to use the network to run the LLM, a peer must first find a sequence of nodes in the graph that form a complete model.
+In order to use the network to run the LLM, a peer must first find a sequence of servers in the network that form a complete model.
 Because the LLM layers must be computed sequentially, the peer must find a path through the network that will ideally compute
-the LLM in the least amount of time possible and at the lowest price. This problem can be solved by viewing the network as a directed graph where weights correspond
-to the computational cost of nodes. The edges of the graph correspond the compatibility between the layers that each node in serving.
-Specifically, every node is connected to all nodes that are serving the consecutive layer of the model. A visualization of this directed graph is shown in Figure \ref{fig:layered_graph}.
+the LLM in the least amount of time possible and at the lowest price. This problem can be solved by viewing the network as a directed graph where nodes are peers serving the LLM lyaers and weights correspond
+to the computational cost and latency of nodes. The edges of the graph correspond to the compatibility between the layers that each node in serving.
+Specifically, every node is connected to every node that are serving the consecutive layer of the model. A visualization of this directed graph is shown in Figure \ref{fig:layered_graph}.
 
 \begin{figure}
 	\centering
@@ -203,8 +203,8 @@ with a computational complexity of $O(|V| + |E|)$.
 
 \subsection{Pareto Efficiency}
 
-The optimal path is well defined when weights for nodes are clearly defined, but there is not a clear way to define
-weights for nodes in this case. In the P2P-LLM network there are two competing criterion that define the weight of node: computational cost and price.
+The optimal path is well defined when weights for nodes are clearly defined, but there is not an apparent way to define
+weights for nodes in this case. In the P2P-LLM network, there are two competing criterion that define the weight of node: computational cost and price.
 The algorithm described above uses a single objective (SO), while the optimal path in the network is a multi-objective (MO) optimization problem.
 There are several way to find optimal solutions to MO optimization problems \citep{1599245}. The simplest way is to convert it to a SO optimization problem, and
 since the shortest path algorithm is designed for SO objective, it is the most practical solution for this task. In order to reframe the problem as a single objective,
@@ -266,7 +266,7 @@ The objective, or weight, of a node, $w_i$ is defined as.
 	\label{fig:Pareto-optimal}
 \end{figure}
 
-However, this assumes that the weight $\alpha$ is known a priori. In general, there are many equivalent optimal solutions in a MO optimization problem.
+However, this assumes that the parameter $\alpha$ is known a priori. In general, there are many equivalent optimal solutions in a MO optimization problem.
 These are known and Pareto-optimal solutions. They are solutions such that there is no way to improve one objective without degrading any other objectives.
 A solution is said to be Pareto-optimal if there are no other solutions that dominate it. A solution $x_1$ dominates $x_2$ if
 \begin{enumerate}
@@ -277,20 +277,20 @@ where $f_i()$ is the utility for the $i$th objective.
 
 The set of all Pareto-optimal solutions forms a frontier (Figure \ref{fig:Pareto-optimal}) of equivalent solutions, but there is not a clear choice on which one should be used.
 In the case of the SO weighted aggregate used in the P2P-LLM network, the parameter $\alpha$ decides where on the Pareto frontier the optimal solution lies.
-Due to this, each node can independently decide that importance of price and computational cost in the optimal path through the network.
+Due to this, each node can independently decide the importance of price and computational cost in the optimal path through the network by choosing the parameter $\alpha$.
 
 \subsection{Revenue Optimization}
 
 Each peer additionally has to choose a price to charge for other peers to use their computation.
-Ideally each node will act in its self-interest and choose the price that maximizes revenue.
-If the price is too high, peers will choose equivalent node serving the same layers,
+Logically, each node will act in its self-interest and choose the price that maximizes revenue.
+If the price is too high, peers will choose equivalent nodes serving the same layers,
 while if the price is too low, the total revenue will be less than ideal.
-The price they choose should reflect the current state of the network, and adapt to conditions.
+The price they choose should reflect the current state of the network, and adapt to changing conditions.
 In this context, price optimization become difficult as it is a dynamic environment
 and a uniform pricing rule would not result in optimal revenue.
 In the P2P-LLM network, a peer only has to compete with other peers serving the same layers.
 This can be exploited to narrow down the complexities of this problem.
-Working with this leads to the conclusion that a nodes price should be determined
+Working with this leads to the conclusion that a node's price should be determined
 by its own price and computational cost and the price and computational cost of all other peers serving the same layers.
 
 \begin{figure}
@@ -355,10 +355,10 @@ Now with the expected revenue function, the optimal price can be found by findin
 Unfortunately, there is not a closed form solution to this problem, but there are methods that can be used.
 Iterative pricing mechanism \citep{ecf80b8b-07bb-374f-ab3f-2cc6a349f689} are used to find optimal prices by making iterative changes to the price until it converges at an optimal point.
 These methods work well for dynamic environment where the state of the market is continuously changing.
-For example, gradient ascent has been used for forex investing \citep{su142215328}.
-The gradient ascent algorithm is very similar to the gradient descent \citep{cauchy1847methode} algorithm commonly used in machine learning.
+For example, gradient ascent has been used for forex investing with algorithmic trading \citep{su142215328}.
+The gradient ascent algorithm is very similar to the gradient descent algorithm \citep{cauchy1847methode} commonly used in machine learning.
 The key difference is that it seeks to maximize a function's value rather minimize it.
-Gradient ascent is used to maximize the expected revenue function, $R(p_i)$ with respect to price.
+Gradient ascent can be applied in the P2P-LLM network to maximize the expected revenue function, $R(p_i)$, with respect to price.
 It is defined as
 
 \begin{equation}
@@ -371,11 +371,11 @@ where $\mathbf{x}_t$ is the parameter vector at iteration $t$
 $\eta$ is the learning rate (step size)
 , and $\nabla f(\mathbf{x}_t)$ is the gradient of the objective function $f$ at point $\mathbf{x}_t$.
 
-Applying this to the revenue function, $R(p_i)$, we can get and update function for the price.
+Applying this to the revenue function, $R(p_i)$, we can get an update rule for the price.
 The gradient of $R$ with respect to $p$ is
 $$\diffp{R}{p} = \mathbb{P}(w)(1 + \alpha p \cdot (\mathbb{P}(w) - 1))$$
 
-Using this with the gradient ascent algorithm Equation \ref{eq:grad}, the price update rule is
+Using this with the gradient ascent algorithm (Equation \ref{eq:grad}), the price update rule is
 
 \begin{equation}
 	p_{t+1} = p_t + \eta \diffp{R}{{p_t}}
@@ -384,11 +384,11 @@ Using this with the gradient ascent algorithm Equation \ref{eq:grad}, the price 
 
 As all nodes continually update their prices, they will converge on the price that gives
 maximum revenue for each node individually. Once this happens the network will be in a steady state where
-no node will change its price.
+no node will want to change its price.
 
 \subsection{Network Equilibrium}
 
-When all nodes are at the state of equilibrium, each layer is at a Nash-Equilibrium (NE), meaning that any deviation in price
+When all nodes are at the state of equilibrium, each layer in the network is at a Nash-Equilibrium (NE), meaning that any deviation in price
 will result in a lower expected revenue. Formally this is defined as the utility of the optimal strategy being greater than or equal to any single deviation.
 In the P2P-LLM network, the utility is just the revenue function $R$.
 A price profile $p^*$ for a layer is a NE when
@@ -398,13 +398,13 @@ A price profile $p^*$ for a layer is a NE when
 \end{equation}
 
 This is a equilibrium for an individual layer in the network, but the whole network may
-not at equilibrium. If the peers in the network are not evenly distributed,
+not be at equilibrium. If the peers in the network are not evenly distributed,
 some layers may have less peers serving them, which will lead to inefficiencies.
 Ideally the computational power in the network will be evenly split between all layers
-in the LLM. This will lead to some nodes benefiting by changing which layers to serve.
+in the LLM. In an unbalanced state, this will lead to some nodes benefiting by changing which layers of the LLM they serve.
 
 The optimal layer for a given node is the one in which they will have the largest
-share of computation. The percentage of computation a node has can by normalizing the
+share of computation. The percentage of computation a node has can be found by normalizing the
 computational cost across a layer. A reciprocal norm is used to find the share of computational power in the layer.
 It is defined as
 
@@ -417,11 +417,11 @@ where $l$ is the layer, $n_l$ is the number of nodes serving the layer $l$, and 
 The optimal layer for a node, is the one that maximizes this value.
 
 \begin{equation}
-	l^* = \text{max}_l s_l(c_i)
+	l^* = \text{max}_l \quad s_l(c_i)
 	\label{eq:max}
 \end{equation}
 
-In the P2P-LLM network, peers will periodically change layers if they are already not in the optimal state.
+In the P2P-LLM network, peers will periodically change layers if they are not already in the optimal state.
 Changing layers will increase the peers expected revenue while also increasing the throughput of the network overall.
 In this case the incentives of the individual nodes are aligned with the whole network overall.
 When no peers have a useful change then the network is in an efficient state.
@@ -438,7 +438,7 @@ For the P2P-LLM network, the blockchain serves three primary functions: (1) reco
 
 Blockchain technology provides an ideal foundation for this system, as it offers immutability, transparency, and security without relying on a central authority.
 
-The blockchain implementation for P2P-LLM employs a Proof-of-Stake (PoS) consensus mechanism rather than the energy-intensive Proof-of-Work (PoW) used in systems like Bitcoin \citep{nakamoto2008bitcoin}. This design choice aligns with our goal of resource efficiency, as PoS validators are selected based on the quantity of tokens they have staked, consuming significantly less energy than PoW mining operations \citep{saleh2021blockchain}. This approach is particularly appropriate for a system focused on computational resource optimization.
+The blockchain implementation for P2P-LLM employs a Proof-of-Stake (PoS) consensus mechanism rather than the energy-intensive Proof-of-Work (PoW) used in systems like Bitcoin \citep{nakamoto2008bitcoin}. This design choice aligns with the goal of resource efficiency, as PoS validators are selected based on the quantity of tokens they have staked, consuming significantly less energy than PoW mining operations \citep{saleh2021blockchain}. This approach is particularly appropriate for a system focused on computational resource optimization.
 
 Each block in the P2P-LLM blockchain contains transactions representing computational resource exchanges between peers. These transactions include metadata such as the identity of the participating nodes, the layers being computed, the computational cost, and the agreed-upon price. Additionally, the blockchain maintains a distributed registry of all active nodes and their capabilities ($\ell_i$, $c_i$, $p_i$), which is critical for the path-finding algorithm described in Section 3.1.
 
@@ -458,7 +458,7 @@ In the P2P-LLM network, three types of smart contracts are employed:
 
 The execution of these contracts is governed by a verification mechanism that ensures computational integrity. When a node performs computation for another peer, the input, output, and intermediate states are cryptographically hashed and recorded on the blockchain. This creates a verifiable proof of computation that can be used to resolve disputes and ensure that nodes are correctly performing their assigned tasks.
 
-To optimize contract execution in the dynamic environment of the P2P-LLM network, we implement an adaptive pricing mechanism based on the concepts described in Section 3.3. This mechanism allows for continuous adjustment of prices based on network conditions, ensuring that nodes are appropriately incentivized to provide computational resources where they are most needed.
+To optimize contract execution in the dynamic environment of the P2P-LLM network, an adaptive pricing mechanism based on the concepts described in Section 3.3 is used. This mechanism allows for continuous adjustment of prices based on network conditions, ensuring that nodes are appropriately incentivized to provide computational resources where they are most needed.
 
 The combination of these contract mechanisms creates a self-regulating marketplace for computational resources that aligns individual incentives with the overall efficiency of the network. Nodes are rewarded for providing reliable, cost-effective computation, while clients can access LLM capabilities at competitive prices without relying on centralized service providers.
 
