@@ -60,6 +60,14 @@
 \maketitle
 
 \begin{abstract}%   <- trailing '%' for backward compatibility of .sty file
+	This project explores a framework that enables distributed running of large language models across personal computing devices connected in a peer-to-peer network.
+	While current advanced AI models require substantial computing resources typically available only to large organizations,
+	P2P-LLM offers an alternative approach by dividing these models into smaller parts that can be processed across multiple personal computers.
+	The system includes efficient routing mechanisms to find optimal paths through the network, balancing computational speed and cost.
+	To encourage participation, the project develops a fair pricing system where participants are rewarded for contributing their computing power.
+	This marketplace is secured by blockchain technology, which handles payments and ensures that agreements between participants are honored.
+	The P2P-LLM approach demonstrates how collaborative computing could make advanced AI more accessible while enhancing privacy and user autonomy,
+	potentially transforming how these technologies are accessed in the future.
 \end{abstract}
 
 \section{Introduction}
@@ -375,15 +383,84 @@ Using this with the gradient ascent algorithm Equation \ref{eq:grad}, the price 
 \end{equation}
 
 As all nodes continuly update their prices, they will converge on the price that gives
-maximum revenue for each node individually.
+maximum revenue for each node individually. Once this happens the network will be in a steady state where
+no node will change its price.
 
 \subsection{Network Equilibrium}
 
+When all nodes are at the state of equilibrium, each layer is at a Nash-Equilibrium (NE), meaning that any deviation in price
+will result is a a lower expected revenue. Formally this is defined as the utility of the optimal stategy being greater than or equal to any single deviation.
+In the P2P-LLM network, the utility is just the revenue function $R$.
+A price profile $p^*$ for a layer is a NE when
+
+\begin{equation}
+	u_i(p_i^*, p^*_{-i}) \geq u_i(p_i, p^*_{-i}) \forall p_i \in \mathbb{R}
+\end{equation}
+
+This is a equilibrium for an individual layer in the network, but the whole network may
+not at equilibrium. If the peers in the network are not evenly distributed,
+some layers may have less peers serving them, which will lead to inefficiencies.
+Ideally the computational power in the network will be evenly split between all layers
+in the LLM. This will lead to some nodes benefiting by changing which layers to serve.
+
+The optimal layer for a given node is the one in which they will have the largest
+share of computation. The percentage of computation a node has can by normalizing the
+computational cost across a layer. A reciprocal norm is used to find the share of computational power in the layer.
+It is defined as
+
+\begin{equation}
+	s_l(c_i) = \frac{c_i^{-1}}{\sum_{j=i}^{n_l}c_j^{-1}}
+	\label{eq:norm}
+\end{equation}
+
+where $l$ is the layer, $n_l$ is the number of nodes serving the layer $l$, and $c_i$ is the computational cost.
+The optimal layer for a node, is the one that maximizes this value.
+
+\begin{equation}
+	l^* = \text{max}_l s_l(c_i)
+	\label{eq:max}
+\end{equation}
+
+In the P2P-LLM network, peers will periodically change layers if they are already not in the optimal state.
+Changing layers will increase the peers expected revenue while also increasing the throughput of the network overall.
+In this case the incentives of the individual nodes are aligned with the whole network overall.
+When no peers have a useful change then the network is in an efficient state.
+
 \section{Cryptoeconomics}
+The P2P-LLM network requires a secure, transparent, and decentralized mechanism to facilitate transactions between peers.
+The blockchain provides a secure and decentralized way to allow peers to form contracts with eachother
+and exchange payment in cryto-currencies for computation.
+Cryptoeconomics has proven to be successful in the past with some application being in
+resources trading through the blockchain. Specifically, research has been done to enable peer-to-peer surplus energy on the blockchain \citep{WONGTHONGTHAM2021107299}.
+For the P2P-LLM network, the blockchain serves three primary functions: (1) recording the state of the network including available nodes and their capabilities, (2) facilitating secure payments between peers, and (3) executing smart contracts that govern computational resource sharing.
 
 \subsection{Blockchain}
 
+Blockchain technology provides an ideal foundation for this system, as it offers immutability, transparency, and security without relying on a central authority.
+
+The blockchain implementation for P2P-LLM employs a Proof-of-Stake (PoS) consensus mechanism rather than the energy-intensive Proof-of-Work (PoW) used in systems like Bitcoin \citep{nakamoto2008bitcoin}. This design choice aligns with our goal of resource efficiency, as PoS validators are selected based on the quantity of tokens they have staked, consuming significantly less energy than PoW mining operations \citep{saleh2021blockchain}. This approach is particularly appropriate for a system focused on computational resource optimization.
+
+Each block in the P2P-LLM blockchain contains transactions representing computational resource exchanges between peers. These transactions include metadata such as the identity of the participating nodes, the layers being computed, the computational cost, and the agreed-upon price. Additionally, the blockchain maintains a distributed registry of all active nodes and their capabilities ($\ell_i$, $c_i$, $p_i$), which is critical for the path-finding algorithm described in Section 3.1.
+
+To ensure scalability, the P2P-LLM blockchain implements a sharding mechanism that partitions the network state by model layers. This design allows transactions related to specific model layers to be processed in parallel, significantly increasing throughput as the network grows. Each shard maintains its own state and processes transactions independently, with periodic cross-shard communication to maintain overall network consistency \citep{yu2020survey}.
+
 \subsection{Contracts}
+
+Smart contracts form the backbone of the interaction mechanism in the P2P-LLM network. These self-executing contracts with the terms of agreement directly written into code automate the negotiation, execution, and settlement processes between peers without requiring trust or intermediaries.
+
+In the P2P-LLM network, three types of smart contracts are employed:
+
+\begin{enumerate}
+	\item \textbf{Registration Contracts}: These contracts handle the onboarding of new nodes to the network. When a node joins, it executes a registration contract that records its capabilities ($\ell_i$, $c_i$, $p_i$) on the blockchain. This contract also requires the node to stake a minimum amount of tokens as collateral, which can be forfeited if the node behaves maliciously or fails to deliver promised computational resources.
+	\item \textbf{Service Level Agreements (SLAs)}: These contracts formalize the terms of computational resource sharing between peers. An SLA contract specifies the model layers to be computed, the expected computational performance (in terms of latency and throughput), the price per computation, and penalties for non-compliance. The contract is automatically executed when a peer requests computation, with payment held in escrow until the computation is successfully completed and verified.
+	\item \textbf{Payment Channels}: To minimize transaction costs and latency, the P2P-LLM network implements payment channels similar to Bitcoin's Lightning Network \citep{poon2016bitcoin}. These channels allow peers to conduct multiple transactions off-chain, only settling the final balance on the blockchain when the channel is closed. This approach is particularly valuable for high-frequency, low-value transactions that are common in LLM inference operations.
+\end{enumerate}
+
+The execution of these contracts is governed by a verification mechanism that ensures computational integrity. When a node performs computation for another peer, the input, output, and intermediate states are cryptographically hashed and recorded on the blockchain. This creates a verifiable proof of computation that can be used to resolve disputes and ensure that nodes are correctly performing their assigned tasks.
+
+To optimize contract execution in the dynamic environment of the P2P-LLM network, we implement an adaptive pricing mechanism based on the concepts described in Section 3.3. This mechanism allows for continuous adjustment of prices based on network conditions, ensuring that nodes are appropriately incentivized to provide computational resources where they are most needed.
+
+The combination of these contract mechanisms creates a self-regulating marketplace for computational resources that aligns individual incentives with the overall efficiency of the network. Nodes are rewarded for providing reliable, cost-effective computation, while clients can access LLM capabilities at competitive prices without relying on centralized service providers.
 
 \section{Experiment Setup}
 
@@ -391,7 +468,7 @@ maximum revenue for each node individually.
 
 % Manual newpage inserted to improve layout of sample file - not
 % needed in general before appendices/bibliography.
-
+%
 \newpage
 
 \appendix
@@ -429,6 +506,8 @@ maximum revenue for each node individually.
 	\end{algorithmic}
 \end{algorithm}
 
+\newpage
+
 \section{Shortest Path}
 \label{app:shortest_path}
 \begin{algorithm}
@@ -460,7 +539,6 @@ maximum revenue for each node individually.
 		\State \Return $dist[t]$, $path$
 	\end{algorithmic}
 \end{algorithm}
-
 
 \vskip 0.2in
 \bibliography{main}

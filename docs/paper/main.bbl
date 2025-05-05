@@ -1,4 +1,4 @@
-\begin{thebibliography}{9}
+\begin{thebibliography}{14}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -43,11 +43,23 @@ Iqbal Murtza, Ayesha Saadia, Rabia Basri, Azhar Imran, Abdullah Almuhaimeed, and
 \newblock \doi{10.3390/su142215328}.
 \newblock URL \url{https://www.mdpi.com/2071-1050/14/22/15328}.
 
+\bibitem[Nakamoto(2009)]{nakamoto2008bitcoin}
+Satoshi Nakamoto.
+\newblock Bitcoin: A peer-to-peer electronic cash system.
+\newblock May 2009.
+\newblock URL \url{http://www.bitcoin.org/bitcoin.pdf}.
+
 \bibitem[Ngatchou et~al.(2005)Ngatchou, Zarei, and El-Sharkawi]{1599245}
 P.~Ngatchou, A.~Zarei, and A.~El-Sharkawi.
 \newblock Pareto multi objective optimization.
 \newblock In \emph{Proceedings of the 13th International Conference on, Intelligent Systems Application to Power Systems}, pages 84--91, 2005.
 \newblock \doi{10.1109/ISAP.2005.1599245}.
+
+\bibitem[Poon and Dryja(2016)]{poon2016bitcoin}
+Joseph Poon and Thaddeus Dryja.
+\newblock The bitcoin lightning network, 2016.
+\newblock URL \url{https://lightning.network/lightning-network-paper.pdf}.
+\newblock Accessed: 2016-07-07.
 
 \bibitem[Saari(1985)]{ecf80b8b-07bb-374f-ab3f-2cc6a349f689}
 Donald~G. Saari.
@@ -56,6 +68,14 @@ Donald~G. Saari.
 \newblock ISSN 00129682, 14680262.
 \newblock URL \url{http://www.jstor.org/stable/1911014}.
 
+\bibitem[Saleh(2020)]{saleh2021blockchain}
+Fahad Saleh.
+\newblock Blockchain without waste: Proof-of-stake.
+\newblock \emph{The Review of Financial Studies}, 34\penalty0 (3):\penalty0 1156--1190, 07 2020.
+\newblock ISSN 0893-9454.
+\newblock \doi{10.1093/rfs/hhaa075}.
+\newblock URL \url{https://doi.org/10.1093/rfs/hhaa075}.
+
 \bibitem[Steltner et~al.(2021)Steltner, Papa, Eggenstein, Allen, Dergachev, Prix, Machenschalk, Walsh, Zhu, Behnke, and Kwang]{Steltner_2021}
 B.~Steltner, M.~A. Papa, H.-B. Eggenstein, B.~Allen, V.~Dergachev, R.~Prix, B.~Machenschalk, S.~Walsh, S.~J. Zhu, O.~Behnke, and S.~Kwang.
 \newblock Einstein@home all-sky search for continuous gravitational waves in ligo o2 public data.
@@ -63,5 +83,19 @@ B.~Steltner, M.~A. Papa, H.-B. Eggenstein, B.~Allen, V.~Dergachev, R.~Prix, B.~M
 \newblock ISSN 1538-4357.
 \newblock \doi{10.3847/1538-4357/abc7c9}.
 \newblock URL \url{http://dx.doi.org/10.3847/1538-4357/abc7c9}.
+
+\bibitem[Wongthongtham et~al.(2021)Wongthongtham, Marrable, Abu-Salih, Liu, and Morrison]{WONGTHONGTHAM2021107299}
+Pornpit Wongthongtham, Daniel Marrable, Bilal Abu-Salih, Xin Liu, and Greg Morrison.
+\newblock Blockchain-enabled peer-to-peer energy trading.
+\newblock \emph{Computers \& Electrical Engineering}, 94:\penalty0 107299, 2021.
+\newblock ISSN 0045-7906.
+\newblock \doi{https://doi.org/10.1016/j.compeleceng.2021.107299}.
+\newblock URL \url{https://www.sciencedirect.com/science/article/pii/S0045790621002780}.
+
+\bibitem[Yu et~al.(2020)Yu, Wang, Yu, Ni, Zhang, and Liu]{yu2020survey}
+Guangsheng Yu, Xu~Wang, Kan Yu, Wei Ni, J.~Andrew Zhang, and Ren~Ping Liu.
+\newblock Survey: Sharding in blockchains.
+\newblock \emph{IEEE Access}, 8:\penalty0 14155--14181, 2020.
+\newblock \doi{10.1109/ACCESS.2020.2965147}.
 
 \end{thebibliography}

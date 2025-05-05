@@ -3,44 +3,46 @@ Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
 The top-level auxiliary file: main.aux
 The style file: plainnat.bst
 Database file #1: main.bib
-You've used 9 entries,
+Warning--empty journal in nakamoto2008bitcoin
+You've used 14 entries,
             2773 wiz_defined-function locations,
-            674 strings with 7500 characters,
-and the built_in function-call counts, 5213 in all, are:
-= -- 451
-> -- 399
-< -- 4
-+ -- 135
-- -- 126
-* -- 475
-:= -- 838
-add.period$ -- 41
-call.type$ -- 9
-change.case$ -- 69
-chr.to.int$ -- 9
-cite$ -- 18
-duplicate$ -- 185
-empty$ -- 347
-format.name$ -- 135
-if$ -- 1061
+            713 strings with 8487 characters,
+and the built_in function-call counts, 7650 in all, are:
+= -- 674
+> -- 545
+< -- 7
++ -- 185
+- -- 171
+* -- 682
+:= -- 1226
+add.period$ -- 65
+call.type$ -- 14
+change.case$ -- 99
+chr.to.int$ -- 14
+cite$ -- 29
+duplicate$ -- 281
+empty$ -- 534
+format.name$ -- 187
+if$ -- 1567
 int.to.chr$ -- 1
 int.to.str$ -- 1
-missing$ -- 7
-newline$ -- 67
-num.names$ -- 36
-pop$ -- 124
+missing$ -- 11
+newline$ -- 101
+num.names$ -- 56
+pop$ -- 177
 preamble$ -- 1
-purify$ -- 60
+purify$ -- 85
 quote$ -- 0
-skip$ -- 161
+skip$ -- 236
 stack$ -- 0
-substring$ -- 146
-swap$ -- 20
+substring$ -- 234
+swap$ -- 26
 text.length$ -- 1
 text.prefix$ -- 0
 top$ -- 0
-type$ -- 99
-warning$ -- 0
-while$ -- 37
+type$ -- 154
+warning$ -- 1
+while$ -- 55
 width$ -- 0
-write$ -- 150
+write$ -- 230
+(There was 1 warning)
