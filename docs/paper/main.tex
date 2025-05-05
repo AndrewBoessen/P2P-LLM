@@ -97,7 +97,7 @@ thereby democratizing access to advanced artificial intelligence capabilities.
 \subsection{Crowd Computing}
 
 The idea of pooling compute power from many computers to form a distributed supercomputer is not new. This concept of Crowd Computing
-has been used ever since large networks of computer were formed. The predominant use of this method is to fascilitate academic research.
+has been used ever since large networks of computer were formed. The predominant use of this method is to facilitate academic research.
 Researchers publish problem that that are working on, and anyone can help contribute by volunteering to donate computing power.
 Projects that have successfully used crowd computing include SETI@Home \citep{10.1145/581571.581573} and Einstein@Home \citep{Steltner_2021}.
 This approach has proven to be successful in the past, but it has become less popular as the computational power of computers increased and access to supercomputers increased.
@@ -105,40 +105,40 @@ However, the use of idle compute power still has untapped applications, and the 
 
 \subsection{P2P Networks}
 
-LLM inference is a perfect candidate for P2P network because it has technical requirments that prohibit most personal computers from being able to run
-large models with billions of parameters, and it can easilly be split into small chunks that can be run on several computers at the same time. BitWorker \citep{Durand_Gasparyan_Rouvinez_Aad_Braun_Trinh_2015} is a protocol designed to compute any parallel computing task across a peer-to-peer network.
+LLM inference is a perfect candidate for P2P network because it has technical requirements that prohibit most personal computers from being able to run
+large models with billions of parameters, and it can easily be split into small chunks that can be run on several computers at the same time. BitWorker \citep{Durand_Gasparyan_Rouvinez_Aad_Braun_Trinh_2015} is a protocol designed to compute any parallel computing task across a peer-to-peer network.
 Although it is possible to apply LLM inference to this protocol, BitWorker is designed for general tasks and would not able to efficiently scale to the demands of many users.
 The most notable research being done in this area is Petals \citep{borzunov2023petalscollaborativeinferencefinetuning} which is a BitTorrent like peer-to-peer network for LLM inference and finetuning.
 Petals creates a network with client and servers. Clients send requests that will be processed by the servers on the network. The model is split into multiple sequential blocks of layers, and each server
 in the network is capable of serving one or multiple of these blocks. In order to run an inference step, a client will find a optimal path of servers
-in the network thats forms the complete model and minimizes time required. In my work I explore a similar approach with a network of distributed computers that serve a specific part of the whole LLM,
-but I expand upon this and add incentive mechanisms that reward nodes for donating their computational power. This incentive mechanism also fucilitates optimal allocation of nodes to maximize throughput, by each
+in the network that forms the complete model and minimizes time required. In my work I explore a similar approach with a network of distributed computers that serve a specific part of the whole LLM,
+but I expand upon this and add incentive mechanisms that reward nodes for donating their computational power. This incentive mechanism also facilitates optimal allocation of nodes to maximize throughput, by each
 node maximizing expected revenue individually.
 
 \section{Peer-to-Peer Network}
 
 Fundamentally, a peer-to-peer network is a decentralized system where each devices acts as a client and a sever.
-Each devices can send and recieve data which eliminates the need for a centralized server. The central benefit of a P2P network
-is that recources are pooled and shared between peers, so the combined resources available to an individual peer is greater than that nodes own resources.
+Each devices can send and receive data which eliminates the need for a centralized server. The central benefit of a P2P network
+is that resources are pooled and shared between peers, so the combined resources available to an individual peer is greater than that nodes own resources.
 A peer-to-peer network can be built to share any type of resource. In the case of BitTorrent, bandwidth and files are shared between peers.
-For the case of LLM inference, peers will need to ba able to share bandwidth, data, and computational power.
+For the case of LLM inference, peers will need to be able to share bandwidth, data, and computational power.
 
-A peer-to-peer network is defined as having $n$ nodes in the network. There is an LLM model with $m$ total layers which will be devided between nodes.
+A peer-to-peer network is defined as having $n$ nodes in the network. There is an LLM model with $m$ total layers which will be divided between nodes.
 Each node $N$ in the network is a tuple $N(\ell, l, c, p)$ where
 \begin{itemize}
 	\item $\ell _i = (x,y) : x,y \in [0,m); y > x$ is the range of layers the node is able to serve
 	\item $l_{ij} \in \mathbb{R}$ is the network latency between nodes $i$ and $j$,
-	\item $c_i \in \mathbb{R}$ is the computational cost of the node, measured in miliseconds
+	\item $c_i \in \mathbb{R}$ is the computational cost of the node, measured in milliseconds
 	\item $p_i \in \mathbb{R}$ is the price the nodes charges for its compute.
 \end{itemize}
 
 \subsection{Path Finding}
 
-In order to use the network to run the LLM, a node must first find a sequence of nodes in the graph that form a complete model.
-Because the LLM layers must be computed sequentially, the node must find a path through the network that will ideally compute
+In order to use the network to run the LLM, a peer must first find a sequence of nodes in the graph that form a complete model.
+Because the LLM layers must be computed sequentially, the peer must find a path through the network that will ideally compute
 the LLM in the least amount of time possible and at the lowest price. This problem can be solved by viewing the network as a directed graph where weights correspond
-to the computational cost of nodes. The edges of the graph correspond the compatability between the layers that each node in serving.
-Specifically, every node is connected to all nodes that are serving the consecutive layer of the model. A vizualization of this directed graph is shown in Figure \ref{fig:layered_graph}.
+to the computational cost of nodes. The edges of the graph correspond the compatibility between the layers that each node in serving.
+Specifically, every node is connected to all nodes that are serving the consecutive layer of the model. A visualization of this directed graph is shown in Figure \ref{fig:layered_graph}.
 
 \begin{figure}
 	\centering
@@ -191,24 +191,24 @@ Specifically, every node is connected to all nodes that are serving the consecut
 	\label{fig:layered_graph}
 \end{figure}
 
-Due to this property, the P2P network graph is a directed acyclical graph (DAG). This means that there are efficient
+Due to this property, the P2P network graph is a directed acyclic graph (DAG). This means that there are efficient
 algorithms to find the shortest path between two nodes. The first step is to perform a topological sort on the nodes in the network.
 This is an ordering of the nodes such that all neighbors of a node come after the node in the ordering.
-For any graph $G = (V, E)$ a totological ordering is an order $\prec$ on $V$ such that if $(u \rightarrow v) \in E$ then $u \prec v$.
+For any graph $G = (V, E)$ a topological ordering is an order $\prec$ on $V$ such that if $(u \rightarrow v) \in E$ then $u \prec v$.
 For example, a topological ordering of the DAG in Figure \ref{fig:layered_graph} is $[0,1,2,3,4,5,6,7,8]$.
 The algorithm for topological sort is shown in Appendix \ref{app:topo_sort}. With the topological order, dynamic programming can be used to find the shortest path in the network.
 This algorithm will iterate over the ordering, and search all the node's neighbors for the one with the lowest weight.
 The full algorithm is shown in Appendix \ref{app:shortest_path}. Most importantly, both the topological sort and path finding algorithm run in linear time
 with a computational complexity of $O(|V| + |E|)$.
 
-\subsection{Pareto Effeciency}
+\subsection{Pareto Efficiency}
 
 The optimal path is well defined when weights for nodes are clearly defined, but there is not a clear way to define
-weights for nodes in this case. In the P2P-LLM network there are two competing criterea that define the weight of node: computational cost and price.
+weights for nodes in this case. In the P2P-LLM network there are two competing criterion that define the weight of node: computational cost and price.
 The algorithm described above uses a single objective (SO), while the optimal path in the network is a multi-objective (MO) optimization problem.
 There are several way to find optimal solutions to MO optimization problems \citep{1599245}. The simplest way is to convert it to a SO optimization problem, and
 since the shortest path algorithm is designed for SO objective, it is the most practical solution for this task. In order to reframe the problem as a single objective,
-a weighed aggreagte of the objetives is used. In the case for the peer-to-peer network, the SO is a weighed sum of computational cost $c_i$ and price $p_i$.
+a weighed aggregate of the objectives is used. In the case for the peer-to-peer network, the SO is a weighed sum of computational cost $c_i$ and price $p_i$.
 The objective, or weight, of a node, $w_i$ is defined as.
 
 \begin{equation}
@@ -266,7 +266,7 @@ The objective, or weight, of a node, $w_i$ is defined as.
 	\label{fig:Pareto-optimal}
 \end{figure}
 
-However, this assumes that the weight $\alpha$ is known a priori. In general, there are many equivilent optimal solutions in a MO optimzation problem.
+However, this assumes that the weight $\alpha$ is known a priori. In general, there are many equivalent optimal solutions in a MO optimization problem.
 These are known and Pareto-optimal solutions. They are solutions such that there is no way to improve one objective without degrading any other objectives.
 A solution is said to be Pareto-optimal if there are no other solutions that dominate it. A solution $x_1$ dominates $x_2$ if
 \begin{enumerate}
@@ -275,15 +275,15 @@ A solution is said to be Pareto-optimal if there are no other solutions that dom
 \end{enumerate}
 where $f_i()$ is the utility for the $i$th objective.
 
-The set of all Pareto-optimal solutions forms a frontier (Figure \ref{fig:Pareto-optimal}) of equivilent solutions, but there is not a clear choice on which one should be used.
-In the case of the SO weighted aggreagte used in the P2P-LLM network, the parameter $\alpha$ decides where on the Pareto frontier the optimal solution lies.
+The set of all Pareto-optimal solutions forms a frontier (Figure \ref{fig:Pareto-optimal}) of equivalent solutions, but there is not a clear choice on which one should be used.
+In the case of the SO weighted aggregate used in the P2P-LLM network, the parameter $\alpha$ decides where on the Pareto frontier the optimal solution lies.
 Due to this, each node can independently decide that importance of price and computational cost in the optimal path through the network.
 
 \subsection{Revenue Optimization}
 
 Each peer additionally has to choose a price to charge for other peers to use their computation.
-Ideally each node will act in its self-iterest and choose the price that maximizes revenue.
-If the price is too high, peers will choose equivlent node serving the same layers,
+Ideally each node will act in its self-interest and choose the price that maximizes revenue.
+If the price is too high, peers will choose equivalent node serving the same layers,
 while if the price is too low, the total revenue will be less than ideal.
 The price they choose should reflect the current state of the network, and adapt to conditions.
 In this context, price optimization become difficult as it is a dynamic environment
@@ -328,7 +328,7 @@ by its own price and computational cost and the price and computational cost of 
 \end{figure}
 
 If we can define a revenue function based on these parameters, then the optimal price can be found by maximizing this function with respect to $p_i$.
-The revenue a node recieves for a single peer using the network would be its price multiplied by the probability of being chosen in the optimal path.
+The revenue a node receives for a single peer using the network would be its price multiplied by the probability of being chosen in the optimal path.
 
 \begin{equation}
 	R(p_i) = p_i \cdot \mathbb{P}(w_i)
@@ -347,17 +347,17 @@ This distribution give the probability that a system will be in certain state.
 where $\epsilon_i$ is the energy for state $i$, $k$ is the Boltzmann constant, and $T$ is the temperature of the system.
 For the purposes of the P2P-LLM network, $k$ and $T$ are dropped and $\epsilon_i$ is $w_i$ (Equation \ref{eq:weight}).
 Using this method gives a smooth expected revenue function, and prices will reflect how much each nodes contributes to the network.
-Specifcally, if a nodes contributes more compute power to the network, demonstrated as a lower computational cost $c_i$, the optimal
+Specifically, if a nodes contributes more compute power to the network, demonstrated as a lower computational cost $c_i$, the optimal
 price they will charge will be higher, and they will be rewarded with a higher expected revenue.
-A vizualization of how $c_i$ effects the expected revenue curve is shown in Figure \ref{fig:exp_rev}.
+A visualization of how $c_i$ effects the expected revenue curve is shown in Figure \ref{fig:exp_rev}.
 
-Now with the expected revnue function, the optimal price can be found by finding the price that maximizes $R(p_i)$.
+Now with the expected revenue function, the optimal price can be found by finding the price that maximizes $R(p_i)$.
 Unfortunately, there is not a closed form solution to this problem, but there are methods that can be used.
-Iterative pricing mechanism \citep{ecf80b8b-07bb-374f-ab3f-2cc6a349f689} are used to find optimal prices by making iterative changes to the price until it converages at an optimal point.
-These methods work well for dynamic environment where the state of the market is contiously changing.
+Iterative pricing mechanism \citep{ecf80b8b-07bb-374f-ab3f-2cc6a349f689} are used to find optimal prices by making iterative changes to the price until it converges at an optimal point.
+These methods work well for dynamic environment where the state of the market is continuously changing.
 For example, gradient ascent has been used for forex investing \citep{su142215328}.
 The gradient ascent algorithm is very similar to the gradient descent \citep{cauchy1847methode} algorithm commonly used in machine learning.
-The key differnce is that it seeks to maximize a function's value rather minimize it.
+The key difference is that it seeks to maximize a function's value rather minimize it.
 Gradient ascent is used to maximize the expected revenue function, $R(p_i)$ with respect to price.
 It is defined as
 
@@ -382,14 +382,14 @@ Using this with the gradient ascent algorithm Equation \ref{eq:grad}, the price 
 	\label{eq:optim_price}
 \end{equation}
 
-As all nodes continuly update their prices, they will converge on the price that gives
+As all nodes continually update their prices, they will converge on the price that gives
 maximum revenue for each node individually. Once this happens the network will be in a steady state where
 no node will change its price.
 
 \subsection{Network Equilibrium}
 
 When all nodes are at the state of equilibrium, each layer is at a Nash-Equilibrium (NE), meaning that any deviation in price
-will result is a a lower expected revenue. Formally this is defined as the utility of the optimal stategy being greater than or equal to any single deviation.
+will result in a lower expected revenue. Formally this is defined as the utility of the optimal strategy being greater than or equal to any single deviation.
 In the P2P-LLM network, the utility is just the revenue function $R$.
 A price profile $p^*$ for a layer is a NE when
 
