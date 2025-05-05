@@ -205,21 +205,7 @@ The full algorithm is shown in Appendix \ref{app:shortest_path}. Most importantl
 with a computational complexity of $O(|V| + |E|)$.
 
 \subsection{Pareto Efficiency}
-
-The optimal path is well defined when weights for nodes are clearly defined, but there is not an apparent way to define
-weights for nodes in this case. In the P2P-LLM network, there are two competing criterion that define the weight of node: computational cost and price.
-The algorithm described above uses a single objective (SO), while the optimal path in the network is a multi-objective (MO) optimization problem.
-There are several way to find optimal solutions to MO optimization problems \citep{1599245}. The simplest way is to convert it to a SO optimization problem, and
-since the shortest path algorithm is designed for SO objective, it is the most practical solution for this task. In order to reframe the problem as a single objective,
-a weighed aggregate of the objectives is used. In the case for the peer-to-peer network, the SO is a weighed sum of computational cost $c_i$ and price $p_i$.
-The objective, or weight, of a node, $w_i$ is defined as.
-
-\begin{equation}
-	w_i = \alpha \cdot p_i + (1 - \alpha) \cdot c_i
-	\label{eq:weight}
-\end{equation}
-
-\begin{figure}[ht]
+\begin{figure}[h]
 	\centering
 	\begin{tikzpicture}
 		\begin{axis}[
@@ -268,6 +254,18 @@ The objective, or weight, of a node, $w_i$ is defined as.
 	\caption{Pareto Frontier}
 	\label{fig:Pareto-optimal}
 \end{figure}
+The optimal path is well defined when weights for nodes are clearly defined, but there is not an apparent way to define
+weights for nodes in this case. In the P2P-LLM network, there are two competing criterion that define the weight of node: computational cost and price.
+The algorithm described above uses a single objective (SO), while the optimal path in the network is a multi-objective (MO) optimization problem.
+There are several way to find optimal solutions to MO optimization problems \citep{1599245}. The simplest way is to convert it to a SO optimization problem, and
+since the shortest path algorithm is designed for SO objective, it is the most practical solution for this task. In order to reframe the problem as a single objective,
+a weighed aggregate of the objectives is used. In the case for the peer-to-peer network, the SO is a weighed sum of computational cost $c_i$ and price $p_i$.
+The objective, or weight, of a node, $w_i$ is defined as.
+
+\begin{equation}
+	w_i = \alpha \cdot p_i + (1 - \alpha) \cdot c_i
+	\label{eq:weight}
+\end{equation}
 
 However, this assumes that the parameter $\alpha$ is known a priori. In general, there are many equivalent optimal solutions in a MO optimization problem.
 These are known and Pareto-optimal solutions. They are solutions such that there is no way to improve one objective without degrading any other objectives.
