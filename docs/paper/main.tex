@@ -49,7 +49,7 @@
 % Heading arguments are {volume}{year}{pages}{date submitted}{date published}{paper id}{author-full-names}
 
 \usepackage{lastpage}
-\jmlrheading{23}{2022}{1}{1/21}{9/22}{21-0000}{Author One and Author Two}
+%\jmlrheading{23}{2022}{1}{1/21}{9/22}{21-0000}{Author One and Author Two}
 
 % Short headings should be running head and authors last names
 
@@ -219,12 +219,12 @@ The objective, or weight, of a node, $w_i$ is defined as.
 	\label{eq:weight}
 \end{equation}
 
-\begin{figure}
+\begin{figure}[ht]
 	\centering
 	\begin{tikzpicture}
 		\begin{axis}[
-				width=12cm,
-				height=8cm,
+				width=10cm,
+				height=6cm,
 				xlabel={Computational Cost},
 				ylabel={Price},
 				xlabel style={font=\large},
@@ -296,12 +296,36 @@ This can be exploited to narrow down the complexities of this problem.
 Working with this leads to the conclusion that a node's price should be determined
 by its own price and computational cost and the price and computational cost of all other peers serving the same layers.
 
-\begin{figure}
+If we can define a revenue function based on these parameters, then the optimal price can be found by maximizing this function with respect to $p_i$.
+The revenue a node receives for a single peer using the network would be its price multiplied by the probability of being chosen in the optimal path.
+
+\begin{equation}
+	R(p_i) = p_i \cdot \mathbb{P}(w_i)
+	\label{eq:revenue}
+\end{equation}
+
+The probability that a node is chosen is related to its weight (Equation \ref{eq:weight}).
+In order to get a distribution across all weights in the node's layer, the Boltzmann distribution \citep{boltzmann1868studien} can be used.
+This distribution give the probability that a system will be in certain state.
+
+\begin{equation}
+	\mathbb{P}(\epsilon_i) = \frac{e^{- \epsilon_i / kT}}{\sum_{j=1}^{M}e^{- \epsilon_j / kT}}
+	\label{eq:Boltzmann}
+\end{equation}
+
+where $\epsilon_i$ is the energy for state $i$, $k$ is the Boltzmann constant, and $T$ is the temperature of the system.
+For the purposes of the P2P-LLM network, $k$ and $T$ are dropped and $\epsilon_i$ is $w_i$ (Equation \ref{eq:weight}).
+Using this method gives a smooth expected revenue function, and prices will reflect how much each nodes contributes to the network.
+Specifically, if a nodes contributes more compute power to the network, demonstrated as a lower computational cost $c_i$, the optimal
+price they will charge will be higher, and they will be rewarded with a higher expected revenue.
+A visualization of how $c_i$ effects the expected revenue curve is shown in Figure \ref{fig:exp_rev}.
+
+\begin{figure}[h]
 	\centering
 	\begin{tikzpicture}
 		\begin{axis}[
-				width=14cm,
-				height=8cm,
+				width=10cm,
+				height=6cm,
 				xlabel={$p_i$},
 				ylabel={Expected Revenue $R(p_i)$},
 				domain=0:12,
@@ -329,30 +353,6 @@ by its own price and computational cost and the price and computational cost of 
 	\caption{Effect of Computational Cost on Expected Revenue}
 	\label{fig:exp_rev}
 \end{figure}
-
-If we can define a revenue function based on these parameters, then the optimal price can be found by maximizing this function with respect to $p_i$.
-The revenue a node receives for a single peer using the network would be its price multiplied by the probability of being chosen in the optimal path.
-
-\begin{equation}
-	R(p_i) = p_i \cdot \mathbb{P}(w_i)
-	\label{eq:revenue}
-\end{equation}
-
-The probability that a node is chosen is related to its weight (Equation \ref{eq:weight}).
-In order to get a distribution across all weights in the node's layer, the Boltzmann distribution \citep{boltzmann1868studien} can be used.
-This distribution give the probability that a system will be in certain state.
-
-\begin{equation}
-	\mathbb{P}(\epsilon_i) = \frac{e^{- \epsilon_i / kT}}{\sum_{j=1}^{M}e^{- \epsilon_j / kT}}
-	\label{eq:Boltzmann}
-\end{equation}
-
-where $\epsilon_i$ is the energy for state $i$, $k$ is the Boltzmann constant, and $T$ is the temperature of the system.
-For the purposes of the P2P-LLM network, $k$ and $T$ are dropped and $\epsilon_i$ is $w_i$ (Equation \ref{eq:weight}).
-Using this method gives a smooth expected revenue function, and prices will reflect how much each nodes contributes to the network.
-Specifically, if a nodes contributes more compute power to the network, demonstrated as a lower computational cost $c_i$, the optimal
-price they will charge will be higher, and they will be rewarded with a higher expected revenue.
-A visualization of how $c_i$ effects the expected revenue curve is shown in Figure \ref{fig:exp_rev}.
 
 Now with the expected revenue function, the optimal price can be found by finding the price that maximizes $R(p_i)$.
 Unfortunately, there is not a closed form solution to this problem, but there are methods that can be used.
@@ -478,7 +478,6 @@ The simulation framework implements a discrete event-based model of the P2P-LLM 
 	\item Update node prices according to the gradient ascent algorithm (Equation \ref{eq:optim_price})
 	\item Periodically, reallocate nodes to new layers (Equation \ref{eq:max})
 	\item Create new contracts for peers without a pending contract
-	\item Record metrics for analysis
 \end{enumerate}
 The simulation parameters can be configured to model various network sizes, LLM architectures, and peer behaviors, allowing for comprehensive sensitivity analysis.
 
@@ -491,36 +490,39 @@ For simplicity, all nodes have an $\alpha$ value of $0.5$ and the $\eta$ used in
 
 \section{Results}
 
-\begin{table}[t]
+\begin{table}[h]
 	\centering
-	\caption{P2P-LLM Network Metrics at Different Iteration Steps (Model with 4 Layers, 200 Peers)}
+	\caption{P2P-LLM Network Metrics at Different Iteration Steps (Model with 4 Layers, 28 Peers)}
 	\label{tab:network-metrics}
 	\begin{tabular}{ccccccc}
 		\toprule
 		\textbf{Iteration} & \textbf{Metric} & \textbf{Layer 1} & \textbf{Layer 2} & \textbf{Layer 3} & \textbf{Layer 4} \\
 		\midrule
 		\multirow{3}{*}{0}
-		                   & Nodes           & 78               & 52               & 34               & 36               \\
-		                   & Avg. Price      & 5.42             & 5.28             & 5.87             & 5.31             \\
+		                   & Nodes           & 10               & 4                & 10               & 4                \\
+		                   & Avg. Price      & 1                & 1                & 1                & 1                \\
 		\midrule
 		\multirow{3}{*}{100}
-		                   & Nodes           & 62               & 48               & 43               & 47               \\
-		                   & Avg. Price      & 5.89             & 5.96             & 5.72             & 5.68             \\
+		                   & Nodes           & 7                & 6                & 10               & 5                \\
+		                   & Avg. Price      & 1.92             & 2.20             & 1.80             & 2.31             \\
 		\midrule
 		\multirow{3}{*}{500}
-		                   & Nodes           & 53               & 49               & 50               & 48               \\
-		                   & Avg. Price      & 6.12             & 6.08             & 6.10             & 6.05             \\
+		                   & Nodes           & 7                & 6                & 8                & 7                \\
+		                   & Avg. Price      & 2.33             & 2.40             & 2.29             & 2.33             \\
 		\midrule
 		\multirow{3}{*}{1000}
-		                   & Nodes           & 50               & 50               & 50               & 50               \\
-		                   & Avg. Price      & 6.14             & 6.15             & 6.13             & 6.15             \\
-		\midrule
-		\multirow{3}{*}{5000}
-		                   & Nodes           & 50               & 50               & 50               & 50               \\
-		                   & Avg. Price      & 6.13             & 6.14             & 6.14             & 6.13             \\
+		                   & Nodes           & 7                & 7                & 7                & 7                \\
+		                   & Avg. Price      & 2.33             & 2.34             & 2.33             & 2.33             \\
 		\bottomrule
 	\end{tabular}
 \end{table}
+
+When running the simulated environment, the behavior of the peers aligns with what is expected based on the theory described above.
+The starting state of the network has uniform pricing across all nodes, and there is a high concentration of peers in the first and third layers of the LLM.
+As the network progresses toward a state of equilibirum, the prices are expected to rise to meet the demand of the network, and reach a maximum where the expected revenue for the reective node is highest.
+Nodes are also expected to change the layer of the LLM they serve based on the location of other nodes in the network. Ideally, the nodes will be evenly distriubted between layers in the network.
+Looking at Table \ref{tab:network-metrics}, the expected actions occurs as the iteration of the simulation increases.
+It eventually reached a point of equilibrium where the prices and layers are constant.
 
 % Manual newpage inserted to improve layout of sample file - not
 % needed in general before appendices/bibliography.
