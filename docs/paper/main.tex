@@ -36,7 +36,10 @@
 \usepackage{pgfplots}
 \pgfplotsset{compat=1.18}
 \usepackage[thinc]{esdiff}
-
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{booktabs}
 
 % Definitions of handy macros can go here
 
@@ -464,7 +467,60 @@ The combination of these contract mechanisms creates a self-regulating marketpla
 
 \section{Experiment Setup}
 
+To evaluate the performance, stability, and efficiency of the propose P2P-LLM protocol, I implemented a simulated environment
+to model the dynamics of the network.
+The simulation explores the relationship between computational resource allocation, price optimization, and network equilibrium under various conditions without requiring the deployment of an actual LLM across distributed hardware.
+
+\subsection{Simulation Framework}
+The simulation framework implements a discrete event-based model of the P2P-LLM network, where each event corresponds to a peer action such as joining the network, processing requests, updating prices, or switching layers. The simulation progresses in timesteps, with each timestep representing a fixed duration (e.g., 1 second in simulated time). At each timestep, the following operations are performed:
+\begin{enumerate}
+	\item Process pending inference requests through the network
+	\item Update node prices according to the gradient ascent algorithm (Equation \ref{eq:optim_price})
+	\item Periodically, reallocate nodes to new layers (Equation \ref{eq:max})
+	\item Create new contracts for peers without a pending contract
+	\item Record metrics for analysis
+\end{enumerate}
+The simulation parameters can be configured to model various network sizes, LLM architectures, and peer behaviors, allowing for comprehensive sensitivity analysis.
+
+\subsection{Network Configuration}
+
+For the simulation, I chose to create a small network, with $n = 28$ total nodes, and a simulated LLM with $m = 4$ layers.
+The parameters of the nodes in the network were randomly initialized
+where $c_i \in (1,50)$, $l_i \in (1,20)$. All prices are intitially set at $1$. The inital state of the network not optimal with the peers being distributed between the $4$ layers in the configuration $[10, 4, 10, 4]$.
+For simplicity, all nodes have an $\alpha$ value of $0.5$ and the $\eta$ used in the iterative pricing function is $1$.
+
 \section{Results}
+
+\begin{table}[t]
+	\centering
+	\caption{P2P-LLM Network Metrics at Different Iteration Steps (Model with 4 Layers, 200 Peers)}
+	\label{tab:network-metrics}
+	\begin{tabular}{ccccccc}
+		\toprule
+		\textbf{Iteration} & \textbf{Metric} & \textbf{Layer 1} & \textbf{Layer 2} & \textbf{Layer 3} & \textbf{Layer 4} \\
+		\midrule
+		\multirow{3}{*}{0}
+		                   & Nodes           & 78               & 52               & 34               & 36               \\
+		                   & Avg. Price      & 5.42             & 5.28             & 5.87             & 5.31             \\
+		\midrule
+		\multirow{3}{*}{100}
+		                   & Nodes           & 62               & 48               & 43               & 47               \\
+		                   & Avg. Price      & 5.89             & 5.96             & 5.72             & 5.68             \\
+		\midrule
+		\multirow{3}{*}{500}
+		                   & Nodes           & 53               & 49               & 50               & 48               \\
+		                   & Avg. Price      & 6.12             & 6.08             & 6.10             & 6.05             \\
+		\midrule
+		\multirow{3}{*}{1000}
+		                   & Nodes           & 50               & 50               & 50               & 50               \\
+		                   & Avg. Price      & 6.14             & 6.15             & 6.13             & 6.15             \\
+		\midrule
+		\multirow{3}{*}{5000}
+		                   & Nodes           & 50               & 50               & 50               & 50               \\
+		                   & Avg. Price      & 6.13             & 6.14             & 6.14             & 6.13             \\
+		\bottomrule
+	\end{tabular}
+\end{table}
 
 % Manual newpage inserted to improve layout of sample file - not
 % needed in general before appendices/bibliography.

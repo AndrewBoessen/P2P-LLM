@@ -297,6 +297,14 @@ INPUT /usr/share/texmf-dist/tex/generic/pgf/libraries/pgflibraryplotmarks.code.t
 INPUT /usr/share/texmf-dist/tex/generic/pgf/libraries/pgflibraryplotmarks.code.tex
 INPUT /usr/share/texmf-dist/tex/latex/esdiff/esdiff.sty
 INPUT /usr/share/texmf-dist/tex/latex/esdiff/esdiff.sty
+INPUT /usr/share/texmf-dist/tex/latex/multirow/multirow.sty
+INPUT /usr/share/texmf-dist/tex/latex/multirow/multirow.sty
+INPUT /usr/share/texmf-dist/tex/latex/tools/array.sty
+INPUT /usr/share/texmf-dist/tex/latex/tools/array.sty
+INPUT /usr/share/texmf-dist/tex/latex/tools/tabularx.sty
+INPUT /usr/share/texmf-dist/tex/latex/tools/tabularx.sty
+INPUT /usr/share/texmf-dist/tex/latex/booktabs/booktabs.sty
+INPUT /usr/share/texmf-dist/tex/latex/booktabs/booktabs.sty
 INPUT /usr/share/texmf-dist/tex/latex/lastpage/lastpage.sty
 INPUT /usr/share/texmf-dist/tex/latex/lastpage/lastpage.sty
 INPUT /usr/share/texmf-dist/tex/latex/lastpage/lastpage2e.sty
